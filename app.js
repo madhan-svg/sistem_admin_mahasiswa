@@ -23,6 +23,22 @@ function sendToGoogleSheets(payload) {
     });
 }
 
+function sendToWhatsApp(payload) {
+    // Fire and forget local POST
+    fetch('http://localhost:3000/send-wa', {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+            'Content-Type': 'text/plain'
+        },
+        body: JSON.stringify(payload)
+    }).then(() => {
+        console.log("WA notification request sent.");
+    }).catch(err => {
+        console.error("WA Server offline or error:", err);
+    });
+}
+
 // --- Fetch Data from Sheets ---
 async function fetchDataFromGoogleSheets() {
     const overlay = document.getElementById('loading-overlay');
@@ -185,13 +201,16 @@ function handleMasterSubmit(event) {
     data.mataKuliah[kode] = { kode, nama, sks };
 
     // Send to Google Sheets (Optimistic UI - update local memory first)
-    sendToGoogleSheets({
+    const payload = {
         id: Date.now(),
         action: 'master_matkul',
         kode: kode,
         namaMK: nama,
         sks: sks
-    });
+    };
+    
+    sendToGoogleSheets(payload);
+    sendToWhatsApp(payload);
 
     document.getElementById('master-kode').value = '';
     document.getElementById('master-nama').value = '';
@@ -337,8 +356,7 @@ function handleFormSubmit(event) {
     // Calculate updated IPK for this student to send to Google Sheets
     const currentIpk = calculateIPK(data.students[nim]).toFixed(2);
 
-    // Send to Google Sheets
-    sendToGoogleSheets({
+    const payload = {
         id: Date.now(),
         action: 'input_nilai',
         nim: nim,
@@ -348,7 +366,11 @@ function handleFormSubmit(event) {
         sks: sks,
         nilaiHuruf: nilaiHuruf,
         ipk: currentIpk
-    });
+    };
+    
+    // Send to Google Sheets
+    sendToGoogleSheets(payload);
+    sendToWhatsApp(payload);
 
     // Reset specific fields
     document.getElementById('input-matkul').value = '';
