@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Nilai Mahasiswa</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .nav-active {
+            background-color: #f3f4f6;
+            color: #2563eb;
+            border-right: 4px solid #2563eb;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans text-gray-800">
+
+    <div class="flex h-screen overflow-hidden">
+        
+        <!-- Sidebar -->
+        <aside class="w-64 bg-white shadow-md flex-shrink-0">
+            <div class="p-6 border-b">
+                <h1 class="text-2xl font-bold text-blue-600"><i class="fas fa-graduation-cap mr-2"></i>SiNilai</h1>
+                <p class="text-sm text-gray-500">Sistem Akademik</p>
+            </div>
+            <nav class="p-4 space-y-2">
+                <a href="#" onclick="switchTab('dashboard')" id="nav-dashboard" class="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors nav-active">
+                    <i class="fas fa-chart-line w-6"></i>
+                    <span class="font-medium">Dashboard</span>
+                </a>
+                <a href="#" onclick="switchTab('input')" id="nav-input" class="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-edit w-6"></i>
+                    <span class="font-medium">Input Nilai</span>
+                </a>
+                <a href="#" onclick="switchTab('view')" id="nav-view" class="flex items-center p-3 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-list w-6"></i>
+                    <span class="font-medium">Data Mahasiswa</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-8">
+            
+            <!-- SECTION: DASHBOARD -->
+            <section id="sec-dashboard" class="block space-y-6">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">Dashboard</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white rounded-xl shadow-sm p-6 flex items-center border-l-4 border-blue-500">
+                        <div class="p-3 rounded-full bg-blue-100 text-blue-500 mr-4">
+                            <i class="fas fa-users text-2xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500 font-medium">Total Mahasiswa</p>
+                            <p class="text-3xl font-bold text-gray-800" id="stat-mhs">0</p>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm p-6 flex items-center border-l-4 border-green-500">
+                        <div class="p-3 rounded-full bg-green-100 text-green-500 mr-4">
+                            <i class="fas fa-book text-2xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500 font-medium">Total Mata Kuliah</p>
+                            <p class="text-3xl font-bold text-gray-800" id="stat-matkul">0</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm p-6 flex items-center border-l-4 border-purple-500">
+                        <div class="p-3 rounded-full bg-purple-100 text-purple-500 mr-4">
+                            <i class="fas fa-calendar-alt text-2xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500 font-medium">Total Nilai Diinput</p>
+                            <p class="text-3xl font-bold text-gray-800" id="stat-nilai">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm p-6 mt-8">
+                    <h3 class="text-lg font-bold mb-4">Informasi Sistem</h3>
+                    <p class="text-gray-600 leading-relaxed">Sistem ini digunakan untuk mencatat dan mengkalkulasi Indeks Prestasi Semester (IPS) serta Indeks Prestasi Kumulatif (IPK) Mahasiswa berdasarkan mata kuliah dan bobot SKS. Skala nilai menggunakan standar A=4, B+=3.5, B=3, C+=2.5, C=2, D=1, E=0.</p>
+                </div>
+            </section>
+
+            <!-- SECTION: INPUT NILAI -->
+            <section id="sec-input" class="hidden space-y-6">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">Input Data Nilai</h2>
+                
+                <div class="bg-white rounded-xl shadow-sm p-6 max-w-2xl">
+                    <form id="form-nilai" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">NIM Mahasiswa</label>
+                                <input type="text" id="input-nim" required class="w-full px-4 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow" placeholder="Masukkan NIM">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Nama Mahasiswa</label>
+                                <input type="text" id="input-nama" required class="w-full px-4 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow" placeholder="Masukkan Nama">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Semester</label>
+                            <input type="number" id="input-semester" min="1" max="14" required class="w-full px-4 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow" placeholder="Contoh: 1">
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Mata Kuliah</label>
+                                <input type="text" id="input-matkul" required class="w-full px-4 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow" placeholder="Nama Mata Kuliah">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">SKS</label>
+                                <input type="number" id="input-sks" min="1" max="6" required class="w-full px-4 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow" placeholder="SKS (1-6)">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nilai Huruf</label>
+                            <select id="input-nilai" required class="w-full px-4 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500 outline-none bg-white transition-shadow">
+                                <option value="" disabled selected>Pilih Nilai</option>
+                                <option value="A">A (4.00)</option>
+                                <option value="B+">B+ (3.50)</option>
+                                <option value="B">B (3.00)</option>
+                                <option value="C+">C+ (2.50)</option>
+                                <option value="C">C (2.00)</option>
+                                <option value="D">D (1.00)</option>
+                                <option value="E">E (0.00)</option>
+                            </select>
+                        </div>
+
+                        <div class="pt-4 border-t mt-6">
+                            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center transform active:scale-95">
+                                <i class="fas fa-save mr-2"></i> Simpan Data Nilai
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+
+            <!-- SECTION: DATA MAHASISWA -->
+            <section id="sec-view" class="hidden space-y-6">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">Data Keseluruhan Mahasiswa</h2>
+                
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div class="p-4 border-b bg-gray-50 flex justify-between items-center">
+                        <h3 class="font-bold text-gray-700">Daftar Mahasiswa & IPK</h3>
+                        <button onclick="clearAllData()" class="text-sm text-red-600 hover:text-red-800 font-medium px-3 py-1 rounded hover:bg-red-50 transition-colors"><i class="fas fa-trash-alt mr-1"></i>Hapus Semua Data</button>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-50 text-gray-600 border-b">
+                                    <th class="p-4 font-semibold text-sm">NIM</th>
+                                    <th class="p-4 font-semibold text-sm">Nama Mahasiswa</th>
+                                    <th class="p-4 font-semibold text-sm">Total SKS</th>
+                                    <th class="p-4 font-semibold text-sm">IPK</th>
+                                    <th class="p-4 font-semibold text-sm text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-mhs-body" class="divide-y divide-gray-200">
+                                <!-- Data injected via JS -->
+                            </tbody>
+                        </table>
+                        <div id="empty-state" class="hidden p-8 text-center text-gray-500">
+                            <i class="fas fa-folder-open text-4xl mb-3 opacity-50"></i>
+                            <p>Belum ada data mahasiswa.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detail Mahasiswa Modal / Section -->
+                <div id="detail-view" class="hidden bg-white rounded-xl shadow-sm overflow-hidden mt-6 border border-blue-200 transition-all duration-300">
+                    <div class="p-4 border-b bg-blue-50 flex justify-between items-center">
+                        <h3 class="font-bold text-blue-800" id="detail-title">Detail Nilai Mahasiswa</h3>
+                        <button onclick="closeDetail()" class="text-gray-500 hover:text-gray-700 hover:bg-blue-100 p-2 rounded-full transition-colors"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-gray-50 rounded-lg border">
+                            <div><span class="text-gray-500 text-sm block">NIM</span> <span id="detail-nim" class="font-bold text-lg"></span></div>
+                            <div><span class="text-gray-500 text-sm block">Nama</span> <span id="detail-nama" class="font-bold text-lg"></span></div>
+                            <div><span class="text-gray-500 text-sm block">IPK Keseluruhan</span> <span id="detail-ipk" class="font-bold text-2xl text-blue-600"></span></div>
+                        </div>
+
+                        <div id="detail-semesters" class="space-y-6">
+                            <!-- Semesters injected via JS -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+        </main>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 transform translate-y-full opacity-0 transition-all duration-300 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center z-50">
+        <i class="fas fa-check-circle mr-2"></i>
+        <span id="toast-msg">Data berhasil disimpan!</span>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
