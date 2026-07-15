@@ -24,8 +24,6 @@ function sendToGoogleSheets(payload) {
   });
 }
 
-}
-
 function sendToWhatsApp(payload) {
     // Fire and forget local POST
     fetch('http://localhost:3000/send-wa', {
@@ -81,8 +79,12 @@ async function fetchDataFromGoogleSheets() {
                     appData.students[nim].semesters[semester] = [];
                 }
 
+                // Cari kode MK yang cocok berdasarkan nama mata kuliah dari data master
+                const findMatkul = Object.values(appData.mataKuliah).find(m => m.nama === row.matkul);
+                const kodeMk = findMatkul ? findMatkul.kode : 'MK-';
+
                 appData.students[nim].semesters[semester].push({
-                    kode: row.matkul, // Assuming matkul stores the name, if they stored kode it would be better. Let's use it as matkul name for now
+                    kode: kodeMk,
                     matkul: row.matkul,
                     sks: parseInt(row.sks),
                     nilaiHuruf: row.nilaiHuruf,
@@ -501,6 +503,7 @@ function calculateIPK(student) {
     return totalSKS === 0 ? 0 : (totalBobot / totalSKS);
 }
 
+// Menghitung Indeks Prestasi Semester (IPS)
 function calculateIPS(semesterData) {
     let totalBobot = 0;
     let totalSKS = 0;
