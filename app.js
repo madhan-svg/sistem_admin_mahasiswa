@@ -8,19 +8,22 @@ function getData() {
 }
 
 function sendToGoogleSheets(payload) {
-    // Fire and forget using text/plain to avoid CORS preflight issues
-    fetch(GOOGLE_SHEETS_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: {
-            'Content-Type': 'text/plain'
-        },
-        body: JSON.stringify(payload)
-    }).then(() => {
-        console.log("Sync request to Google Sheets completed.");
-    }).catch(err => {
-        console.error("Error syncing to Google Sheets:", err);
-    });
+  fetch(GOOGLE_SHEETS_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8'
+    },
+    body: JSON.stringify(payload),
+    redirect: 'follow' // Wajib ditambahkan agar sistem redirect Google script berjalan lancar
+  })
+  .then(() => {
+    console.log("Sync request to Google Sheets completed.");
+  })
+  .catch((err) => {
+    console.error("Error syncing to Google Sheets:", err);
+  });
+}
+
 }
 
 function sendToWhatsApp(payload) {
