@@ -45,27 +45,27 @@ async function fetchDataFromGoogleSheets() {
     try {
         const response = await fetch(GOOGLE_SHEETS_URL);
         const data = await response.json();
-        
+
         // Reconstruct appData from Google Sheets JSON
         appData = { mataKuliah: {}, students: {} };
-        
+
         // Parse Master Matkul
         if (data.mataKuliah) {
             data.mataKuliah.forEach(mk => {
-                appData.mataKuliah[mk.kode] = { 
-                    kode: mk.kode, 
-                    nama: mk.nama, 
-                    sks: parseInt(mk.sks) 
+                appData.mataKuliah[mk.kode] = {
+                    kode: mk.kode,
+                    nama: mk.nama,
+                    sks: parseInt(mk.sks)
                 };
             });
         }
-        
+
         // Parse Students
         if (data.students) {
             data.students.forEach(row => {
                 const nim = row.nim;
                 const semester = row.semester;
-                
+
                 if (!appData.students[nim]) {
                     appData.students[nim] = {
                         nim: nim,
@@ -73,11 +73,11 @@ async function fetchDataFromGoogleSheets() {
                         semesters: {}
                     };
                 }
-                
+
                 if (!appData.students[nim].semesters[semester]) {
                     appData.students[nim].semesters[semester] = [];
                 }
-                
+
                 appData.students[nim].semesters[semester].push({
                     kode: row.matkul, // Assuming matkul stores the name, if they stored kode it would be better. Let's use it as matkul name for now
                     matkul: row.matkul,
@@ -87,21 +87,22 @@ async function fetchDataFromGoogleSheets() {
                 });
             });
         }
-        
+
         // Update UI
         updateDashboard();
         updateMasterView();
         populateMatkulDropdown();
         updateView();
-        
+
         // Hide overlay
         overlay.classList.add('opacity-0', 'pointer-events-none');
         setTimeout(() => overlay.classList.add('hidden'), 300);
-        
+
     } catch (error) {
         console.error("Error fetching data:", error);
-        alert("Gagal memuat data dari Google Sheets. Pastikan URL Web App benar dan bisa diakses secara publik.");
+        showToast('Gagal memuat data dari Google Sheets. Periksa koneksi atau URL Web App.', 'error');
         overlay.classList.add('opacity-0', 'pointer-events-none');
+        setTimeout(() => overlay.classList.add('hidden'), 300);
     }
 }
 
@@ -132,20 +133,11 @@ function toggleMobileMenu() {
 
 function switchTab(tabId) {
     // Hide all sections
-    document.getElementById('sec-dashboard').classList.add('hidden');
-    document.getElementById('sec-dashboard').classList.remove('block');
-    document.getElementById('sec-master').classList.add('hidden');
-    document.getElementById('sec-master').classList.remove('block');
-    document.getElementById('sec-input').classList.add('hidden');
-    document.getElementById('sec-input').classList.remove('block');
-    document.getElementById('sec-view').classList.add('hidden');
-    document.getElementById('sec-view').classList.remove('block');
-
-    // Remove active class from all nav items
-    document.getElementById('nav-dashboard').classList.remove('nav-active');
-    document.getElementById('nav-master').classList.remove('nav-active');
-    document.getElementById('nav-input').classList.remove('nav-active');
-    document.getElementById('nav-view').classList.remove('nav-active');
+    ['dashboard', 'master', 'input', 'view'].forEach(id => {
+        document.getElementById(`sec-${id}`).classList.add('hidden');
+        document.getElementById(`sec-${id}`).classList.remove('block');
+        document.getElementById(`nav-${id}`).classList.remove('nav-active');
+    });
 
     // Show selected section
     document.getElementById(`sec-${tabId}`).classList.remove('hidden');
@@ -176,21 +168,79 @@ function showToast(message, type = 'success') {
     msgEl.innerText = message;
 
     if (type === 'error') {
-        iconEl.innerHTML = '<i class="fas fa-exclamation-circle text-xl text-red-400"></i>';
+        iconEl.innerHTML = '<i class="fas fa-circle-exclamation text-danger-line"></i>';
     } else {
-        iconEl.innerHTML = '<i class="fas fa-check-circle text-xl text-green-400"></i>';
+        iconEl.innerHTML = '<i class="fas fa-check-circle text-success-line"></i>';
     }
 
     toast.classList.remove('translate-y-full', 'opacity-0');
 
-    setTimeout(() => {
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => {
         toast.classList.add('translate-y-full', 'opacity-0');
-    }, 3000);
+    }, 3500);
+}
+
+// --- Field Validation Helpers ---
+function showFieldError(fieldId, message) {
+    const input = document.getElementById(fieldId);
+    const errorEl = document.querySelector(`.field-error[data-for="${fieldId}"]`);
+    if (input) input.classList.add('invalid');
+    if (errorEl) {
+        errorEl.querySelector('span').innerText = message;
+        errorEl.classList.add('show');
+    }
+}
+
+function clearFieldError(fieldId) {
+    const input = document.getElementById(fieldId);
+    const errorEl = document.querySelector(`.field-error[data-for="${fieldId}"]`);
+    if (input) input.classList.remove('invalid');
+    if (errorEl) errorEl.classList.remove('show');
+}
+
+function clearFormErrors(formEl) {
+    formEl.querySelectorAll('.field-error').forEach(el => el.classList.remove('show'));
+    formEl.querySelectorAll('.invalid').forEach(el => el.classList.remove('invalid'));
 }
 
 // --- MASTER DATA LOGIC ---
+function validateMasterField(fieldId) {
+    const data = getData();
+    if (fieldId === 'master-kode') {
+        const val = document.getElementById('master-kode').value.trim();
+        if (!val) { showFieldError('master-kode', 'Kode MK wajib diisi.'); return false; }
+        clearFieldError('master-kode');
+        return true;
+    }
+    if (fieldId === 'master-nama') {
+        const val = document.getElementById('master-nama').value.trim();
+        if (!val) { showFieldError('master-nama', 'Nama mata kuliah wajib diisi.'); return false; }
+        clearFieldError('master-nama');
+        return true;
+    }
+    if (fieldId === 'master-sks') {
+        const val = document.getElementById('master-sks').value;
+        const num = parseInt(val);
+        if (!val) { showFieldError('master-sks', 'SKS wajib diisi.'); return false; }
+        if (isNaN(num) || num < 1 || num > 6) { showFieldError('master-sks', 'SKS harus di antara 1 dan 6.'); return false; }
+        clearFieldError('master-sks');
+        return true;
+    }
+    return true;
+}
+
 function handleMasterSubmit(event) {
     event.preventDefault();
+
+    const validKode = validateMasterField('master-kode');
+    const validNama = validateMasterField('master-nama');
+    const validSks = validateMasterField('master-sks');
+
+    if (!validKode || !validNama || !validSks) {
+        showToast('Periksa kembali data yang diisi.', 'error');
+        return;
+    }
 
     const kode = document.getElementById('master-kode').value.trim().toUpperCase();
     const nama = document.getElementById('master-nama').value.trim();
@@ -198,6 +248,7 @@ function handleMasterSubmit(event) {
 
     const data = getData();
 
+    const isUpdate = !!data.mataKuliah[kode];
     data.mataKuliah[kode] = { kode, nama, sks };
 
     // Send to Google Sheets (Optimistic UI - update local memory first)
@@ -208,17 +259,17 @@ function handleMasterSubmit(event) {
         namaMK: nama,
         sks: sks
     };
-    
+
     sendToGoogleSheets(payload);
     sendToWhatsApp(payload);
 
-    document.getElementById('master-kode').value = '';
-    document.getElementById('master-nama').value = '';
-    document.getElementById('master-sks').value = '';
+    document.getElementById('form-master').reset();
+    clearFormErrors(document.getElementById('form-master'));
     document.getElementById('master-kode').focus();
 
     updateMasterView();
-    showToast(`Mata kuliah ${nama} ditambahkan & disinkron!`);
+    updateDashboard();
+    showToast(isUpdate ? `Mata kuliah ${nama} diperbarui & disinkron!` : `Mata kuliah ${nama} ditambahkan & disinkron!`);
 }
 
 function updateMasterView() {
@@ -237,14 +288,14 @@ function updateMasterView() {
 
         matkuls.forEach(mk => {
             const tr = document.createElement('tr');
-            tr.className = 'hover:bg-gray-50 transition-colors';
+            tr.className = 'hover:bg-surface transition-colors';
             tr.innerHTML = `
-                <td class="p-4 text-sm font-bold text-gray-700">${mk.kode}</td>
-                <td class="p-4 text-sm text-gray-600">${mk.nama}</td>
-                <td class="p-4 text-sm text-center font-medium">${mk.sks}</td>
-                <td class="p-4 text-center">
-                    <button onclick="deleteMaster('${mk.kode}')" class="text-gray-400 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-red-50">
-                        <i class="fas fa-trash"></i>
+                <td class="p-3.5 px-5 text-sm font-semibold text-ink font-num">${mk.kode}</td>
+                <td class="p-3.5 text-sm text-ink-soft">${mk.nama}</td>
+                <td class="p-3.5 text-sm text-center font-medium text-ink font-num">${mk.sks}</td>
+                <td class="p-3.5 px-5 text-center">
+                    <button onclick="deleteMaster('${mk.kode}')" class="text-muted hover:text-danger transition-colors p-2 rounded-md hover:bg-danger-soft" aria-label="Hapus ${mk.kode}">
+                        <i class="fas fa-trash text-sm"></i>
                     </button>
                 </td>
             `;
@@ -254,7 +305,7 @@ function updateMasterView() {
 }
 
 function deleteMaster(kode) {
-    alert("Penghapusan data tidak dapat dilakukan dari sistem ini karena sekarang menggunakan Google Sheets murni. Silakan hapus baris data secara manual di Google Sheets Anda lalu refresh halaman ini.");
+    showToast("Penghapusan tidak dapat dilakukan dari sini. Hapus baris data secara manual di Google Sheets lalu refresh halaman.", 'error');
 }
 
 // --- INPUT NILAI LOGIC ---
@@ -267,7 +318,7 @@ function populateMatkulDropdown() {
     const matkuls = Object.values(data.mataKuliah);
 
     // Clear existing options
-    select.innerHTML = '<option value="" disabled selected>-- Pilih Mata Kuliah --</option>';
+    select.innerHTML = '<option value="" disabled selected>— Pilih mata kuliah —</option>';
 
     if (matkuls.length === 0) {
         alertNoMaster.classList.remove('hidden');
@@ -281,7 +332,7 @@ function populateMatkulDropdown() {
         matkuls.forEach(mk => {
             const option = document.createElement('option');
             option.value = mk.kode;
-            option.text = `${mk.kode} - ${mk.nama}`;
+            option.text = `${mk.kode} — ${mk.nama}`;
             // Store SKS in data attribute for easy access
             option.setAttribute('data-sks', mk.sks);
             option.setAttribute('data-nama', mk.nama);
@@ -301,11 +352,57 @@ function updateSksDisplay() {
         const sks = option.getAttribute('data-sks');
         document.getElementById('display-sks').value = `${sks} SKS`;
         document.getElementById('input-sks').value = sks;
+        clearFieldError('input-matkul');
     }
+}
+
+function validateNilaiField(fieldId) {
+    if (fieldId === 'input-nim') {
+        const val = document.getElementById('input-nim').value.trim();
+        if (!val) { showFieldError('input-nim', 'NIM wajib diisi.'); return false; }
+        if (!/^\d+$/.test(val)) { showFieldError('input-nim', 'NIM hanya boleh berisi angka.'); return false; }
+        clearFieldError('input-nim');
+        return true;
+    }
+    if (fieldId === 'input-nama') {
+        const val = document.getElementById('input-nama').value.trim();
+        if (!val) { showFieldError('input-nama', 'Nama wajib diisi.'); return false; }
+        clearFieldError('input-nama');
+        return true;
+    }
+    if (fieldId === 'input-semester') {
+        const val = document.getElementById('input-semester').value;
+        const num = parseInt(val);
+        if (!val) { showFieldError('input-semester', 'Semester wajib diisi.'); return false; }
+        if (isNaN(num) || num < 1 || num > 14) { showFieldError('input-semester', 'Semester harus di antara 1 dan 14.'); return false; }
+        clearFieldError('input-semester');
+        return true;
+    }
+    if (fieldId === 'input-matkul') {
+        const val = document.getElementById('input-matkul').value;
+        if (!val) { showFieldError('input-matkul', 'Pilih mata kuliah terlebih dahulu.'); return false; }
+        clearFieldError('input-matkul');
+        return true;
+    }
+    if (fieldId === 'input-nilai') {
+        const val = document.getElementById('input-nilai').value;
+        if (!val) { showFieldError('input-nilai', 'Pilih nilai huruf.'); return false; }
+        clearFieldError('input-nilai');
+        return true;
+    }
+    return true;
 }
 
 function handleFormSubmit(event) {
     event.preventDefault();
+
+    const fields = ['input-nim', 'input-nama', 'input-semester', 'input-matkul', 'input-nilai'];
+    const results = fields.map(validateNilaiField);
+
+    if (results.includes(false)) {
+        showToast('Periksa kembali data yang diisi.', 'error');
+        return;
+    }
 
     const nim = document.getElementById('input-nim').value.trim();
     const nama = document.getElementById('input-nama').value.trim();
@@ -329,7 +426,7 @@ function handleFormSubmit(event) {
             semesters: {}
         };
     } else {
-        data.students[nim].nama = nama; // Update name 
+        data.students[nim].nama = nama; // Update name
     }
 
     // Initialize semester if not exists
@@ -340,6 +437,7 @@ function handleFormSubmit(event) {
     // Check if subject already inputted for this semester
     const exists = data.students[nim].semesters[semester].find(mk => mk.kode === kodeMk);
     if (exists) {
+        showFieldError('input-matkul', 'Mata kuliah ini sudah diinput pada semester tersebut.');
         showToast('Mata kuliah ini sudah diinput pada semester tersebut!', 'error');
         return;
     }
@@ -367,19 +465,22 @@ function handleFormSubmit(event) {
         nilaiHuruf: nilaiHuruf,
         ipk: currentIpk
     };
-    
+
     // Send to Google Sheets
     sendToGoogleSheets(payload);
     sendToWhatsApp(payload);
 
-    // Reset specific fields
+    // Reset only the subject/grade fields, keep student identity for fast repeat entry
     document.getElementById('input-matkul').value = '';
     document.getElementById('display-sks').value = '';
     document.getElementById('input-sks').value = '';
     document.getElementById('input-nilai').value = '';
+    clearFieldError('input-matkul');
+    clearFieldError('input-nilai');
     document.getElementById('input-matkul').focus();
 
-    showToast('Data berhasil direkam & disinkron ke Google Sheets!');
+    updateDashboard();
+    showToast(`Nilai ${namaMk} untuk ${nama} berhasil direkam & disinkron!`);
 }
 
 // --- Calculations & View Logic ---
@@ -447,32 +548,31 @@ function updateView() {
             }
 
             const ipk = calculateIPK(student).toFixed(2);
-            let ipkColor = 'text-green-600';
-            let ipkBg = 'bg-green-50';
+            let ipkClasses = 'bg-success-soft text-success border-success-line';
 
-            if (ipk < 2.0) { ipkColor = 'text-red-600'; ipkBg = 'bg-red-50'; }
-            else if (ipk < 3.0) { ipkColor = 'text-amber-600'; ipkBg = 'bg-amber-50'; }
+            if (ipk < 2.0) { ipkClasses = 'bg-danger-soft text-danger border-danger-line'; }
+            else if (ipk < 3.0) { ipkClasses = 'bg-warn-soft text-warn border-warn-line'; }
 
             const tr = document.createElement('tr');
-            tr.className = 'hover:bg-gray-50/50 transition-colors';
+            tr.className = 'hover:bg-surface transition-colors';
             tr.innerHTML = `
-                <td class="p-5">
+                <td class="p-4 px-5">
                     <div class="flex items-center">
-                        <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold mr-3 shadow-sm">
+                        <div class="w-8 h-8 rounded-md bg-accent-soft text-accent flex items-center justify-center font-semibold text-sm mr-3 flex-shrink-0">
                             ${student.nama.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                            <p class="font-bold text-gray-800">${student.nama}</p>
-                            <p class="text-xs text-gray-500">${student.nim}</p>
+                            <p class="font-medium text-ink text-sm">${student.nama}</p>
+                            <p class="text-xs text-muted font-num">${student.nim}</p>
                         </div>
                     </div>
                 </td>
-                <td class="p-5 text-center font-medium text-gray-600">${totalSKS}</td>
-                <td class="p-5 text-center">
-                    <span class="${ipkBg} ${ipkColor} px-3 py-1 rounded-full font-bold text-sm border border-opacity-20 border-current shadow-sm">${ipk}</span>
+                <td class="p-4 text-center text-sm text-ink-soft font-num">${totalSKS}</td>
+                <td class="p-4 text-center">
+                    <span class="${ipkClasses} px-2.5 py-1 rounded-md font-semibold text-xs border font-num">${ipk}</span>
                 </td>
-                <td class="p-5 text-center">
-                    <button onclick="viewDetail('${student.nim}')" class="bg-white border border-gray-200 text-gray-700 hover:text-indigo-600 hover:border-indigo-300 shadow-sm px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:shadow">
+                <td class="p-4 px-5 text-center">
+                    <button onclick="viewDetail('${student.nim}')" class="border border-line text-ink-soft hover:text-accent hover:border-accent px-3 py-1.5 rounded-md text-xs font-medium transition-colors">
                         <i class="fas fa-eye mr-1"></i> Rincian
                     </button>
                 </td>
@@ -506,42 +606,42 @@ function viewDetail(nim) {
 
         mkData.forEach(mk => {
             sksSem += mk.sks;
-            let badgeColor = 'bg-green-100 text-green-700';
-            if (['D', 'E'].includes(mk.nilaiHuruf)) badgeColor = 'bg-red-100 text-red-700';
-            else if (['C', 'C+'].includes(mk.nilaiHuruf)) badgeColor = 'bg-amber-100 text-amber-700';
+            let badgeClasses = 'bg-success-soft text-success border-success-line';
+            if (['D', 'E'].includes(mk.nilaiHuruf)) badgeClasses = 'bg-danger-soft text-danger border-danger-line';
+            else if (['C', 'C+'].includes(mk.nilaiHuruf)) badgeClasses = 'bg-warn-soft text-warn border-warn-line';
 
             rows += `
-                <tr class="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
+                <tr class="border-b border-line last:border-0 hover:bg-surface transition-colors">
                     <td class="py-3 px-4">
-                        <p class="font-medium text-gray-700">${mk.matkul}</p>
-                        <p class="text-xs text-gray-400">${mk.kode || '-'}</p>
+                        <p class="text-sm text-ink">${mk.matkul}</p>
+                        <p class="text-xs text-muted font-num">${mk.kode || '-'}</p>
                     </td>
-                    <td class="py-3 px-4 text-center text-sm font-medium text-gray-600">${mk.sks}</td>
+                    <td class="py-3 px-4 text-center text-sm text-ink-soft font-num">${mk.sks}</td>
                     <td class="py-3 px-4 text-center">
-                        <span class="${badgeColor} px-2 py-0.5 rounded text-xs font-bold">${mk.nilaiHuruf}</span>
+                        <span class="${badgeClasses} px-2 py-0.5 rounded border text-xs font-semibold font-num">${mk.nilaiHuruf}</span>
                     </td>
-                    <td class="py-3 px-4 text-center text-sm font-medium text-gray-500">${mk.nilaiAngka.toFixed(2)}</td>
+                    <td class="py-3 px-4 text-center text-sm text-ink-soft font-num">${mk.nilaiAngka.toFixed(2)}</td>
                 </tr>
             `;
         });
 
         const semHtml = `
-            <div class="border border-gray-100 rounded-xl overflow-hidden mb-5 shadow-sm">
-                <div class="bg-gray-50/80 p-4 flex justify-between items-center border-b border-gray-100">
-                    <h4 class="font-bold text-indigo-900">Semester ${sem}</h4>
-                    <div class="flex space-x-4 text-sm bg-white px-3 py-1.5 rounded-lg shadow-sm border border-gray-100">
-                        <span class="text-gray-500">SKS: <span class="font-bold text-gray-800">${sksSem}</span></span>
-                        <span class="text-gray-300">|</span>
-                        <span class="text-gray-500">IPS: <span class="font-bold text-indigo-600">${ips}</span></span>
+            <div class="border border-line rounded-lg overflow-hidden">
+                <div class="bg-surface p-3.5 px-4 flex justify-between items-center border-b border-line">
+                    <h4 class="text-sm font-semibold text-ink">Semester ${sem}</h4>
+                    <div class="flex items-center gap-3 text-xs">
+                        <span class="text-muted">SKS <span class="font-semibold text-ink font-num">${sksSem}</span></span>
+                        <span class="text-line-strong">|</span>
+                        <span class="text-muted">IPS <span class="font-semibold text-accent font-num">${ips}</span></span>
                     </div>
                 </div>
                 <table class="w-full text-left">
-                    <thead class="bg-white text-gray-400 text-xs uppercase border-b border-gray-100">
+                    <thead class="text-muted text-[11px] uppercase border-b border-line">
                         <tr>
-                            <th class="py-3 px-4 font-semibold">Mata Kuliah</th>
-                            <th class="py-3 px-4 font-semibold text-center w-20">SKS</th>
-                            <th class="py-3 px-4 font-semibold text-center w-24">Nilai</th>
-                            <th class="py-3 px-4 font-semibold text-center w-24">Bobot</th>
+                            <th class="py-2.5 px-4 font-semibold">Mata Kuliah</th>
+                            <th class="py-2.5 px-4 font-semibold text-center w-20">SKS</th>
+                            <th class="py-2.5 px-4 font-semibold text-center w-24">Nilai</th>
+                            <th class="py-2.5 px-4 font-semibold text-center w-24">Bobot</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white">
@@ -563,10 +663,31 @@ function closeDetail() {
 }
 
 function clearAllData() {
-    alert("Sistem ini kini terhubung langsung ke Google Sheets secara permanen. Untuk melakukan Reset/Menghapus seluruh data, Anda harus masuk ke file Google Sheets Anda, lalu blok semua baris dan tekan tombol Delete (Hapus).");
+    showToast("Untuk mereset seluruh data, hapus baris data langsung di Google Sheets Anda, lalu refresh halaman.", 'error');
+}
+
+// --- Live validation wiring ---
+function initLiveValidation() {
+    const masterFields = ['master-kode', 'master-nama', 'master-sks'];
+    masterFields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('blur', () => validateMasterField(id));
+        if (el) el.addEventListener('input', () => { if (el.classList.contains('invalid')) validateMasterField(id); });
+    });
+
+    const nilaiFields = ['input-nim', 'input-nama', 'input-semester', 'input-matkul', 'input-nilai'];
+    nilaiFields.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('blur', () => validateNilaiField(id));
+        el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', () => {
+            if (el.classList.contains('invalid')) validateNilaiField(id);
+        });
+    });
 }
 
 // Init
 window.onload = () => {
+    initLiveValidation();
     fetchDataFromGoogleSheets();
 };
