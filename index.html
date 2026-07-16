@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Nilai Mahasiswa</title>
+    <title>Sistem Nilai Mahasiswa - SiNilai Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -43,7 +43,6 @@
         body { font-family: 'Inter', sans-serif; }
         .font-num { font-family: 'IBM Plex Mono', monospace; font-feature-settings: "tnum"; }
 
-        /* Ledger heading rule — the page's one recurring signature: a hairline + bold rule pair under section headers, like an underline on a paper gradebook */
         .ledger-rule {
             border-bottom: 1px solid #18181B;
             padding-bottom: 14px;
@@ -57,7 +56,7 @@
             background: #E4E4E7;
         }
 
-        .nav-item { position: relative; }
+        .nav-item { position: relative; transition: all 0.2s ease; }
         .nav-active {
             background-color: #EAF1F8;
             color: #1D4E89;
@@ -84,8 +83,11 @@
         .field-error.show { display: flex; }
         input.invalid, select.invalid { border-color: #991B1B !important; }
 
-        @media (prefers-reduced-motion: reduce) {
-            * { transition: none !important; animation: none !important; }
+        @media print {
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { position: absolute; left: 0; top: 0; width: 100%; }
+            .no-print { display: none !important; }
         }
     </style>
 </head>
@@ -107,7 +109,7 @@
                         <i class="fas fa-graduation-cap text-base"></i>
                     </div>
                     <div>
-                        <h1 class="text-base font-semibold text-ink leading-tight">SiNilai</h1>
+                        <h1 class="text-base font-semibold text-ink leading-tight">SiNilai Pro</h1>
                         <p class="text-[11px] text-muted font-medium tracking-wide uppercase">Sistem Akademik</p>
                     </div>
                 </div>
@@ -116,12 +118,17 @@
                 </button>
             </div>
 
-            <nav id="sidebar-nav" class="hidden md:flex flex-col p-3 space-y-1 max-md:absolute max-md:w-full max-md:bg-white max-md:border-b max-md:border-line transition-all duration-200 z-10">
+            <nav id="sidebar-nav" class="hidden md:flex flex-col p-3 space-y-1 max-md:absolute max-md:w-full max-md:bg-white max-md:border-b max-md:border-line transition-all duration-200 z-10 shadow-sm md:shadow-none">
                 <p class="text-[11px] font-semibold text-muted uppercase tracking-wider px-3 pt-3 pb-1">Menu utama</p>
                 <a href="#" onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item flex items-center pl-3 pr-3 py-2.5 rounded-lg text-ink-soft nav-active">
                     <div class="nav-indicator w-1 h-4 bg-accent rounded-full mr-2.5 -ml-3"></div>
                     <i class="fas fa-chart-pie w-5 text-sm"></i>
                     <span class="text-sm font-medium ml-1">Dashboard</span>
+                </a>
+                <a href="#" onclick="switchTab('dosen')" id="nav-dosen" class="nav-item flex items-center pl-3 pr-3 py-2.5 rounded-lg text-ink-soft">
+                    <div class="nav-indicator w-1 h-4 bg-accent rounded-full mr-2.5 -ml-3"></div>
+                    <i class="fas fa-user-tie w-5 text-sm"></i>
+                    <span class="text-sm font-medium ml-1">Master Dosen</span>
                 </a>
                 <a href="#" onclick="switchTab('master')" id="nav-master" class="nav-item flex items-center pl-3 pr-3 py-2.5 rounded-lg text-ink-soft">
                     <div class="nav-indicator w-1 h-4 bg-accent rounded-full mr-2.5 -ml-3"></div>
@@ -153,7 +160,7 @@
                     <p class="text-sm text-ink-soft mt-1">Ringkasan statistik akademik terpadu.</p>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div class="border border-line rounded-lg p-5">
                         <div class="flex items-center justify-between mb-4">
                             <p class="text-xs font-medium text-ink-soft uppercase tracking-wide">Total Mahasiswa</p>
@@ -166,7 +173,17 @@
 
                     <div class="border border-line rounded-lg p-5">
                         <div class="flex items-center justify-between mb-4">
-                            <p class="text-xs font-medium text-ink-soft uppercase tracking-wide">Master Mata Kuliah</p>
+                            <p class="text-xs font-medium text-ink-soft uppercase tracking-wide">Total Dosen</p>
+                            <div class="w-8 h-8 rounded-md bg-accent-soft text-accent flex items-center justify-center">
+                                <i class="fas fa-user-tie text-sm"></i>
+                            </div>
+                        </div>
+                        <p class="text-3xl font-semibold text-ink font-num" id="stat-dosen">0</p>
+                    </div>
+
+                    <div class="border border-line rounded-lg p-5">
+                        <div class="flex items-center justify-between mb-4">
+                            <p class="text-xs font-medium text-ink-soft uppercase tracking-wide">Master Matkul</p>
                             <div class="w-8 h-8 rounded-md bg-accent-soft text-accent flex items-center justify-center">
                                 <i class="fas fa-book-open text-sm"></i>
                             </div>
@@ -176,7 +193,7 @@
 
                     <div class="border border-line rounded-lg p-5">
                         <div class="flex items-center justify-between mb-4">
-                            <p class="text-xs font-medium text-ink-soft uppercase tracking-wide">Total Nilai Diinput</p>
+                            <p class="text-xs font-medium text-ink-soft uppercase tracking-wide">Total Record Nilai</p>
                             <div class="w-8 h-8 rounded-md bg-accent-soft text-accent flex items-center justify-center">
                                 <i class="fas fa-chart-line text-sm"></i>
                             </div>
@@ -185,47 +202,77 @@
                     </div>
                 </div>
 
-                <div class="border border-line rounded-lg p-6 mt-6">
-                    <h3 class="text-sm font-semibold text-ink mb-1 flex items-center">
-                        <i class="fas fa-info-circle text-accent mr-2"></i> Skala Nilai
-                    </h3>
-                    <p class="text-sm text-ink-soft leading-relaxed mb-4">
-                        Sistem ini menggunakan struktur data terpusat (Master Data). Tambahkan mata kuliah di menu <strong class="text-ink font-medium">Master Matkul</strong> sebelum menginput nilai mahasiswa.
-                    </p>
-                    <div class="grid grid-cols-4 sm:grid-cols-7 gap-2">
-                        <div class="border border-line rounded-md py-2 text-center">
-                            <p class="text-xs font-semibold text-ink font-num">A</p>
-                            <p class="text-[11px] text-muted font-num">4.0</p>
+                <div class="border border-line rounded-lg p-6 mt-6 bg-surface flex flex-col md:flex-row justify-between items-start md:items-center">
+                    <div>
+                        <h3 class="text-base font-semibold text-ink">Rata-rata IPK Kampus</h3>
+                        <p class="text-sm text-ink-soft mt-1">Akumulasi rata-rata indeks prestasi akademik dari mahasiswa terdaftar.</p>
+                    </div>
+                    <div class="mt-4 md:mt-0 px-6 py-3 bg-white border border-line rounded-lg shadow-sm text-center">
+                        <p class="text-[10px] uppercase font-bold text-muted tracking-wider">IPK Rata-Rata</p>
+                        <p class="text-3xl font-bold text-accent font-num" id="stat-avg-ipk">0.00</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECTION: MASTER DOSEN -->
+            <section id="sec-dosen" class="hidden max-w-5xl">
+                <div class="ledger-rule mb-8">
+                    <h2 class="text-2xl font-semibold text-ink">Master Data Dosen</h2>
+                    <p class="text-sm text-ink-soft mt-1">Kelola direktori dosen pengampu mata kuliah.</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-1">
+                        <div class="border border-line rounded-lg p-5 sticky top-0 bg-white">
+                            <h3 class="text-sm font-semibold text-ink mb-4">Tambah Dosen</h3>
+                            <form id="form-dosen" onsubmit="handleDosenSubmit(event)" novalidate class="space-y-4">
+                                <div>
+                                    <label for="dosen-nidn" class="block text-xs font-medium text-ink-soft mb-1.5">NIDN / NIP</label>
+                                    <input type="text" id="dosen-nidn" required class="w-full px-3 py-2.5 text-sm bg-white border border-line rounded-md transition-colors font-num" placeholder="Misal: 041208xxxx">
+                                    <p class="field-error text-xs text-danger mt-1.5 items-center gap-1" data-for="dosen-nidn"><i class="fas fa-circle-exclamation"></i><span></span></p>
+                                </div>
+                                <div>
+                                    <label for="dosen-nama" class="block text-xs font-medium text-ink-soft mb-1.5">Nama Lengkap & Gelar</label>
+                                    <input type="text" id="dosen-nama" required class="w-full px-3 py-2.5 text-sm bg-white border border-line rounded-md transition-colors" placeholder="Misal: Dr. Eng. Hermawan, M.T.">
+                                    <p class="field-error text-xs text-danger mt-1.5 items-center gap-1" data-for="dosen-nama"><i class="fas fa-circle-exclamation"></i><span></span></p>
+                                </div>
+                                <button type="submit" class="w-full mt-1 bg-accent hover:bg-accent-hover text-white text-sm font-medium py-2.5 px-4 rounded-md transition-colors flex items-center justify-center">
+                                    <i class="fas fa-plus mr-2 text-xs"></i> Simpan Dosen
+                                </button>
+                            </form>
                         </div>
-                        <div class="border border-line rounded-md py-2 text-center">
-                            <p class="text-xs font-semibold text-ink font-num">B+</p>
-                            <p class="text-[11px] text-muted font-num">3.5</p>
-                        </div>
-                        <div class="border border-line rounded-md py-2 text-center">
-                            <p class="text-xs font-semibold text-ink font-num">B</p>
-                            <p class="text-[11px] text-muted font-num">3.0</p>
-                        </div>
-                        <div class="border border-line rounded-md py-2 text-center">
-                            <p class="text-xs font-semibold text-ink font-num">C+</p>
-                            <p class="text-[11px] text-muted font-num">2.5</p>
-                        </div>
-                        <div class="border border-line rounded-md py-2 text-center">
-                            <p class="text-xs font-semibold text-ink font-num">C</p>
-                            <p class="text-[11px] text-muted font-num">2.0</p>
-                        </div>
-                        <div class="border border-line rounded-md py-2 text-center">
-                            <p class="text-xs font-semibold text-ink font-num">D</p>
-                            <p class="text-[11px] text-muted font-num">1.0</p>
-                        </div>
-                        <div class="border border-line rounded-md py-2 text-center">
-                            <p class="text-xs font-semibold text-ink font-num">E</p>
-                            <p class="text-[11px] text-muted font-num">0.0</p>
+                    </div>
+
+                    <div class="lg:col-span-2">
+                        <div class="border border-line rounded-lg overflow-hidden">
+                            <div class="px-5 py-3.5 border-b border-line bg-surface">
+                                <h3 class="text-sm font-semibold text-ink">Daftar Dosen Terdaftar</h3>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr class="text-muted text-[11px] uppercase tracking-wider border-b border-line">
+                                            <th class="p-3.5 px-5 font-semibold">NIDN</th>
+                                            <th class="p-3.5 font-semibold">Nama Dosen</th>
+                                            <th class="p-3.5 px-5 font-semibold text-center">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="table-dosen-body" class="divide-y divide-line"></tbody>
+                                </table>
+                                <div id="empty-dosen-state" class="hidden p-12 text-center">
+                                    <div class="w-12 h-12 border border-line rounded-lg flex items-center justify-center mx-auto mb-3">
+                                        <i class="fas fa-user-tie text-lg text-muted"></i>
+                                    </div>
+                                    <p class="text-sm font-medium text-ink">Belum ada data dosen</p>
+                                    <p class="text-xs text-muted mt-1">Tambahkan dosen pertama lewat form di sebelah kiri.</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <!-- SECTION: MASTER DATA -->
+            <!-- SECTION: MASTER DATA MATKUL -->
             <section id="sec-master" class="hidden max-w-5xl">
                 <div class="ledger-rule mb-8">
                     <h2 class="text-2xl font-semibold text-ink">Master Data Mata Kuliah</h2>
@@ -233,19 +280,18 @@
                 </div>
 
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <!-- Form Master Data -->
                     <div class="lg:col-span-1">
-                        <div class="border border-line rounded-lg p-5 sticky top-0">
-                            <h3 class="text-sm font-semibold text-ink mb-4">Tambah mata kuliah</h3>
+                        <div class="border border-line rounded-lg p-5 bg-white sticky top-0">
+                            <h3 class="text-sm font-semibold text-ink mb-4">Tambah Mata Kuliah</h3>
                             <form id="form-master" onsubmit="handleMasterSubmit(event)" novalidate class="space-y-4">
                                 <div>
                                     <label for="master-kode" class="block text-xs font-medium text-ink-soft mb-1.5">Kode MK</label>
-                                    <input type="text" id="master-kode" required class="w-full px-3 py-2.5 text-sm bg-white border border-line rounded-md transition-colors" placeholder="Misal: IF101">
+                                    <input type="text" id="master-kode" required class="w-full px-3 py-2.5 text-sm bg-white border border-line rounded-md transition-colors" placeholder="Misal: TK302">
                                     <p class="field-error text-xs text-danger mt-1.5 items-center gap-1" data-for="master-kode"><i class="fas fa-circle-exclamation"></i><span></span></p>
                                 </div>
                                 <div>
                                     <label for="master-nama" class="block text-xs font-medium text-ink-soft mb-1.5">Nama Mata Kuliah</label>
-                                    <input type="text" id="master-nama" required class="w-full px-3 py-2.5 text-sm bg-white border border-line rounded-md transition-colors" placeholder="Misal: Algoritma">
+                                    <input type="text" id="master-nama" required class="w-full px-3 py-2.5 text-sm bg-white border border-line rounded-md transition-colors" placeholder="Misal: Arsitektur Komputer">
                                     <p class="field-error text-xs text-danger mt-1.5 items-center gap-1" data-for="master-nama"><i class="fas fa-circle-exclamation"></i><span></span></p>
                                 </div>
                                 <div>
@@ -260,11 +306,10 @@
                         </div>
                     </div>
 
-                    <!-- List Master Data -->
                     <div class="lg:col-span-2">
-                        <div class="border border-line rounded-lg overflow-hidden">
-                            <div class="px-5 py-3.5 border-b border-line">
-                                <h3 class="text-sm font-semibold text-ink">Daftar mata kuliah tersimpan</h3>
+                        <div class="border border-line rounded-lg overflow-hidden bg-white">
+                            <div class="px-5 py-3.5 border-b border-line bg-surface">
+                                <h3 class="text-sm font-semibold text-ink">Daftar Mata Kuliah Tersimpan</h3>
                             </div>
                             <div class="overflow-x-auto">
                                 <table class="w-full text-left border-collapse">
@@ -276,16 +321,13 @@
                                             <th class="p-3.5 px-5 font-semibold text-center">Aksi</th>
                                         </tr>
                                     </thead>
-                                    <tbody id="table-master-body" class="divide-y divide-line">
-                                        <!-- Data injected via JS -->
-                                    </tbody>
+                                    <tbody id="table-master-body" class="divide-y divide-line"></tbody>
                                 </table>
                                 <div id="empty-master-state" class="hidden p-12 text-center">
                                     <div class="w-12 h-12 border border-line rounded-lg flex items-center justify-center mx-auto mb-3">
                                         <i class="fas fa-box-open text-lg text-muted"></i>
                                     </div>
                                     <p class="text-sm font-medium text-ink">Belum ada master data</p>
-                                    <p class="text-xs text-muted mt-1">Tambah mata kuliah pertama lewat form di samping.</p>
                                 </div>
                             </div>
                         </div>
@@ -293,20 +335,19 @@
                 </div>
             </section>
 
-            <!-- SECTION: INPUT NILAI -->
+            <!-- SECTION: INPUT NILAI KOMPREHENSIF -->
             <section id="sec-input" class="hidden max-w-2xl">
                 <div class="ledger-rule mb-8">
-                    <h2 class="text-2xl font-semibold text-ink">Input Data Nilai</h2>
-                    <p class="text-sm text-ink-soft mt-1">Masukkan nilai mahasiswa berdasarkan master data mata kuliah.</p>
+                    <h2 class="text-2xl font-semibold text-ink">Input Nilai Komprehensif</h2>
+                    <p class="text-sm text-ink-soft mt-1">Masukkan data nilai mahasiswa berdasar Tugas (30%), UTS (30%), dan UAS (40%).</p>
                 </div>
 
-                <div class="border border-line rounded-lg p-6 md:p-7">
-
+                <div class="border border-line rounded-lg p-6 md:p-7 bg-white">
                     <div id="alert-no-master" class="hidden mb-6 border border-warn-line bg-warn-soft text-warn px-4 py-3 rounded-md flex items-start gap-3">
                         <i class="fas fa-triangle-exclamation mt-0.5 text-sm"></i>
                         <div>
-                            <p class="font-semibold text-sm">Belum ada master mata kuliah</p>
-                            <p class="text-sm mt-0.5">Tambahkan mata kuliah di menu <strong>Master Matkul</strong> sebelum menginput nilai.</p>
+                            <p class="font-semibold text-sm">Prasyarat Terbuka</p>
+                            <p class="text-xs mt-1">Harap isi data Dosen dan Mata Kuliah sebelum mengisi nilai mahasiswa.</p>
                         </div>
                     </div>
 
@@ -314,7 +355,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div>
                                 <label for="input-nim" class="block text-xs font-medium text-ink-soft mb-1.5">NIM Mahasiswa</label>
-                                <input type="text" id="input-nim" required inputmode="numeric" class="w-full px-3 py-2.5 text-sm bg-white border border-line rounded-md transition-colors font-num" placeholder="Masukkan NIM">
+                                <input type="text" id="input-nim" required class="w-full px-3 py-2.5 text-sm bg-white border border-line rounded-md transition-colors font-num" placeholder="Masukkan NIM">
                                 <p class="field-error text-xs text-danger mt-1.5 items-center gap-1" data-for="input-nim"><i class="fas fa-circle-exclamation"></i><span></span></p>
                             </div>
                             <div>
@@ -324,10 +365,19 @@
                             </div>
                         </div>
 
-                        <div>
-                            <label for="input-semester" class="block text-xs font-medium text-ink-soft mb-1.5">Semester</label>
-                            <input type="number" id="input-semester" min="1" max="14" required class="w-full px-3 py-2.5 text-sm bg-white border border-line rounded-md transition-colors font-num" placeholder="1–14">
-                            <p class="field-error text-xs text-danger mt-1.5 items-center gap-1" data-for="input-semester"><i class="fas fa-circle-exclamation"></i><span></span></p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label for="input-semester" class="block text-xs font-medium text-ink-soft mb-1.5">Semester</label>
+                                <input type="number" id="input-semester" min="1" max="14" required class="w-full px-3 py-2.5 text-sm bg-white border border-line rounded-md transition-colors font-num" placeholder="1–14">
+                                <p class="field-error text-xs text-danger mt-1.5 items-center gap-1" data-for="input-semester"><i class="fas fa-circle-exclamation"></i><span></span></p>
+                            </div>
+                            <div>
+                                <label for="input-dosen" class="block text-xs font-medium text-ink-soft mb-1.5">Dosen Pengampu</label>
+                                <select id="input-dosen" required class="w-full px-3 py-2.5 text-sm bg-white border border-line rounded-md transition-colors">
+                                    <option value="" disabled selected>Pilih Dosen</option>
+                                </select>
+                                <p class="field-error text-xs text-danger mt-1.5 items-center gap-1" data-for="input-dosen"><i class="fas fa-circle-exclamation"></i><span></span></p>
+                            </div>
                         </div>
 
                         <div class="p-4 bg-surface rounded-lg border border-line space-y-4">
@@ -338,51 +388,59 @@
                                 </select>
                                 <p class="field-error text-xs text-danger mt-1.5 items-center gap-1" data-for="input-matkul"><i class="fas fa-circle-exclamation"></i><span></span></p>
                             </div>
+                            
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label for="display-sks" class="block text-xs font-medium text-ink-soft mb-1.5">SKS</label>
-                                    <input type="text" id="display-sks" disabled class="w-full px-3 py-2.5 text-sm bg-line/40 border border-line rounded-md text-center font-semibold text-ink-soft font-num" placeholder="–">
+                                    <label for="display-sks" class="block text-xs font-medium text-ink-soft mb-1.5">SKS Terbeban</label>
+                                    <input type="text" id="display-sks" readonly class="w-full px-3 py-2.5 text-sm bg-line/40 border border-line rounded-md text-center font-semibold text-ink-soft font-num" placeholder="–">
                                     <input type="hidden" id="input-sks">
                                 </div>
-                                <div>
-                                    <label for="input-nilai" class="block text-xs font-medium text-ink-soft mb-1.5">Nilai Huruf</label>
-                                    <select id="input-nilai" required class="w-full px-3 py-2.5 text-sm bg-white border border-line rounded-md transition-colors font-semibold text-accent font-num">
-                                        <option value="" disabled selected>Pilih</option>
-                                        <option value="A">A</option>
-                                        <option value="B+">B+</option>
-                                        <option value="B">B</option>
-                                        <option value="C+">C+</option>
-                                        <option value="C">C</option>
-                                        <option value="D">D</option>
-                                        <option value="E">E</option>
-                                    </select>
-                                    <p class="field-error text-xs text-danger mt-1.5 items-center gap-1" data-for="input-nilai"><i class="fas fa-circle-exclamation"></i><span></span></p>
+                                <div class="opacity-0 pointer-events-none select-none">
+                                    <!-- Elemen visual pembantu agar grid simetris -->
+                                </div>
+                            </div>
+
+                            <div class="border-t border-line pt-4">
+                                <p class="text-xs font-semibold text-ink mb-3 uppercase tracking-wide">Komponen Penilaian Akademik</p>
+                                <div class="grid grid-cols-3 gap-3">
+                                    <div>
+                                        <label for="nilai-tugas" class="block text-[11px] font-medium text-ink-soft mb-1">TUGAS (30%)</label>
+                                        <input type="number" id="nilai-tugas" min="0" max="100" required class="w-full px-2 py-2 text-sm bg-white border border-line rounded-md font-num" placeholder="0-100">
+                                        <p class="field-error text-[10px] text-danger mt-1 items-center gap-1" data-for="nilai-tugas"><i class="fas fa-circle-exclamation"></i><span></span></p>
+                                    </div>
+                                    <div>
+                                        <label for="nilai-uts" class="block text-[11px] font-medium text-ink-soft mb-1">UTS (30%)</label>
+                                        <input type="number" id="nilai-uts" min="0" max="100" required class="w-full px-2 py-2 text-sm bg-white border border-line rounded-md font-num" placeholder="0-100">
+                                        <p class="field-error text-[10px] text-danger mt-1 items-center gap-1" data-for="nilai-uts"><i class="fas fa-circle-exclamation"></i><span></span></p>
+                                    </div>
+                                    <div>
+                                        <label for="nilai-uas" class="block text-[11px] font-medium text-ink-soft mb-1">UAS (40%)</label>
+                                        <input type="number" id="nilai-uas" min="0" max="100" required class="w-full px-2 py-2 text-sm bg-white border border-line rounded-md font-num" placeholder="0-100">
+                                        <p class="field-error text-[10px] text-danger mt-1 items-center gap-1" data-for="nilai-uas"><i class="fas fa-circle-exclamation"></i><span></span></p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         <div class="pt-1">
                             <button type="submit" id="btn-submit-nilai" class="w-full bg-accent hover:bg-accent-hover text-white font-medium py-3 px-4 rounded-md transition-colors flex items-center justify-center text-sm">
-                                <i class="fas fa-check mr-2 text-xs"></i> Rekam Nilai Mahasiswa
+                                <i class="fas fa-calculator mr-2"></i> Hitung & Rekam Nilai
                             </button>
                         </div>
                     </form>
                 </div>
             </section>
 
-            <!-- SECTION: DATA MAHASISWA -->
+            <!-- SECTION: DATA AKADEMIK MAHASISWA -->
             <section id="sec-view" class="hidden max-w-5xl">
                 <div class="ledger-rule mb-8 flex flex-col md:flex-row md:justify-between md:items-end gap-3">
                     <div>
                         <h2 class="text-2xl font-semibold text-ink">Data Akademik Mahasiswa</h2>
                         <p class="text-sm text-ink-soft mt-1">Rekapitulasi IPK dan detail IPS per semester.</p>
                     </div>
-                    <button onclick="clearAllData()" class="text-xs text-danger hover:text-white hover:bg-danger font-medium px-3 py-2 rounded-md border border-danger-line bg-danger-soft transition-colors flex items-center gap-1.5 flex-shrink-0">
-                        <i class="fas fa-trash-alt"></i>Reset Sistem
-                    </button>
                 </div>
 
-                <div class="border border-line rounded-lg overflow-hidden">
+                <div class="border border-line rounded-lg overflow-hidden bg-white">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead>
@@ -393,9 +451,7 @@
                                     <th class="p-4 px-5 font-semibold text-center">Aksi</th>
                                 </tr>
                             </thead>
-                            <tbody id="table-mhs-body" class="divide-y divide-line">
-                                <!-- Data injected via JS -->
-                            </tbody>
+                            <tbody id="table-mhs-body" class="divide-y divide-line"></tbody>
                         </table>
                         <div id="empty-state" class="hidden p-16 text-center">
                             <div class="w-14 h-14 border border-line rounded-lg flex items-center justify-center mx-auto mb-4">
@@ -407,45 +463,46 @@
                     </div>
                 </div>
 
-                <!-- Detail Mahasiswa -->
-                <div id="detail-view" class="hidden border border-line rounded-lg overflow-hidden mt-6">
-                    <div class="p-5 border-b border-line flex justify-between items-start">
-                        <div>
-                            <h3 class="font-semibold text-lg text-ink" id="detail-nama">Nama Mahasiswa</h3>
-                            <p class="text-accent text-sm font-medium flex items-center mt-1 font-num">
-                                <i class="fas fa-id-card mr-1.5 text-xs"></i> <span id="detail-nim">NIM</span>
-                            </p>
-                        </div>
-                        <button onclick="closeDetail()" class="text-ink-soft hover:text-ink border border-line hover:border-line-strong p-2.5 rounded-md transition-colors" aria-label="Tutup rincian">
-                            <i class="fas fa-times text-sm"></i>
-                        </button>
-                    </div>
-
-                    <div class="p-5">
-                        <div class="border border-line rounded-lg p-5 flex justify-between items-center mb-6 bg-surface">
+                <!-- Print & Detail Area -->
+                <div id="detail-view" class="hidden border border-line rounded-lg overflow-hidden mt-6 bg-white">
+                    <div id="print-area" class="p-6">
+                        <div class="flex justify-between items-start border-b border-line pb-4 mb-6">
                             <div>
-                                <p class="text-xs font-medium text-ink-soft uppercase tracking-wide mb-1">Indeks Prestasi Kumulatif</p>
-                                <p class="text-3xl font-semibold text-accent font-num" id="detail-ipk">0.00</p>
+                                <h3 class="font-bold text-xl text-ink" id="detail-nama">Nama Mahasiswa</h3>
+                                <p class="text-accent text-sm font-medium font-num flex items-center mt-1" id="detail-nim">NIM</p>
                             </div>
-                            <div class="w-11 h-11 border border-line rounded-lg flex items-center justify-center text-accent bg-white">
-                                <i class="fas fa-award text-lg"></i>
+                            <div class="flex gap-2 no-print">
+                                <button onclick="window.print()" class="bg-accent text-white px-4 py-2 rounded-md text-xs font-semibold hover:bg-accent-hover transition-all flex items-center gap-1.5">
+                                    <i class="fas fa-print"></i> Cetak / Ekspor PDF
+                                </button>
+                                <button onclick="closeDetail()" class="text-ink-soft hover:text-ink border border-line p-2 rounded-md transition-colors">
+                                    <i class="fas fa-times"></i>
+                                </button>
                             </div>
                         </div>
 
-                        <h4 class="text-xs font-semibold text-ink-soft uppercase tracking-wide mb-3">Rincian per semester</h4>
-                        <div id="detail-semesters" class="space-y-4">
-                            <!-- Semesters injected via JS -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                            <div class="border border-line rounded-lg p-4 bg-surface">
+                                <p class="text-[10px] uppercase font-bold text-ink-soft tracking-wider">Indeks Prestasi Kumulatif (IPK)</p>
+                                <p class="text-3xl font-bold text-accent font-num mt-1" id="detail-ipk">0.00</p>
+                            </div>
+                            <div class="border border-line rounded-lg p-4 bg-surface flex flex-col justify-center">
+                                <p class="text-[10px] uppercase font-bold text-ink-soft tracking-wider">Predikat Kelulusan</p>
+                                <p class="text-lg font-semibold text-success mt-1" id="detail-status">Sangat Memuaskan</p>
+                            </div>
                         </div>
+
+                        <h4 class="text-xs font-semibold text-ink-soft uppercase tracking-wide mb-3">Transkrip Nilai Akademik</h4>
+                        <div id="detail-semesters" class="space-y-4"></div>
                     </div>
                 </div>
             </section>
-
         </main>
     </div>
 
     <!-- Toast Notification -->
     <div id="toast" class="fixed bottom-5 right-5 transform translate-y-full opacity-0 transition-all duration-300 ease-out bg-ink text-white px-4 py-3 rounded-lg shadow-lg flex items-center z-50 max-w-sm">
-        <div id="toast-icon" class="mr-2.5 text-sm"><i class="fas fa-check-circle"></i></div>
+        <div id="toast-icon" class="mr-2.5 text-sm text-success-line"><i class="fas fa-check-circle"></i></div>
         <span id="toast-msg" class="text-sm font-medium">Notifikasi sukses!</span>
     </div>
 
