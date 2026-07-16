@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sikece — Dashboard Administrasi Akademik</title>
+    <title>SiNilai Pro — Dashboard Administrasi Akademik</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome Icons -->
@@ -73,7 +73,6 @@
         
         <!-- SIDEBAR NAVIGATION -->
         <aside class="w-full md:w-64 bg-white border-b md:border-b-0 md:border-r border-line flex flex-col flex-shrink-0 no-print">
-            <!-- Header Sidebar -->
             <div class="p-4 px-6 border-b border-line flex items-center justify-between">
                 <div class="flex items-center gap-2.5">
                     <div class="bg-accent text-white p-2 rounded-lg text-xs">
@@ -125,7 +124,6 @@
                     <h2 class="text-xl font-bold tracking-tight">Ringkasan Utama</h2>
                     <p class="text-xs text-ink-soft mt-0.5">Analitik sebaran data operasional akademik berjalan.</p>
                 </div>
-                <!-- Kumpulan Card Metrik -->
                 <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
                     <div class="bg-white p-4 rounded-xl border border-line shadow-sm">
                         <p class="text-[10px] font-semibold uppercase tracking-wider text-muted">Total Mahasiswa</p>
@@ -157,8 +155,8 @@
                     <p class="text-xs text-ink-soft mt-0.5">Pengelolaan record dosen pengampu perkuliahan.</p>
                 </div>
                 <div class="grid md:grid-cols-3 gap-6 items-start">
-                    <form id="form-dosen" onsubmit="handleDosenSubmit(event)" class="bg-white p-5 rounded-xl border border-line shadow-sm space-y-4">
-                        <h3 class="text-xs font-bold text-ink uppercase border-b border-line pb-2">Form Tambah Dosen</h3>
+                    <form id="form-dosen" class="bg-white p-5 rounded-xl border border-line shadow-sm space-y-4">
+                        <h3 class="text-xs font-bold text-ink uppercase border-b border-line pb-2">Form Data Dosen</h3>
                         <div>
                             <label class="block text-xs font-semibold text-zinc-600 mb-1">NIDN</label>
                             <input type="text" id="dosen-nidn" class="w-full px-3 py-2 text-xs border border-line rounded-md focus:outline-none focus:border-accent" placeholder="Contoh: 0412038901">
@@ -177,12 +175,11 @@
                                 <tr>
                                     <th class="p-3 px-5">NIDN</th>
                                     <th class="p-3">Nama Lengkap</th>
-                                    <th class="p-3 px-5 text-center w-20">Aksi</th>
+                                    <th class="p-3 px-5 text-center w-24">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody id="table-dosen-body" class="divide-y divide-line"></tbody>
                         </table>
-                        <div id="empty-dosen-state" class="p-8 text-center text-xs text-muted">Belum ada data dosen terdaftar.</div>
                     </div>
                 </div>
             </section>
@@ -194,8 +191,8 @@
                     <p class="text-xs text-ink-soft mt-0.5">Kelola paket daftar matakuliah dasar institusi.</p>
                 </div>
                 <div class="grid md:grid-cols-3 gap-6 items-start">
-                    <form id="form-master" onsubmit="handleMasterSubmit(event)" class="bg-white p-5 rounded-xl border border-line shadow-sm space-y-4">
-                        <h3 class="text-xs font-bold text-ink uppercase border-b border-line pb-2">Form Matakuliah Baru</h3>
+                    <form id="form-master" class="bg-white p-5 rounded-xl border border-line shadow-sm space-y-4">
+                        <h3 class="text-xs font-bold text-ink uppercase border-b border-line pb-2">Form Matakuliah</h3>
                         <div>
                             <label class="block text-xs font-semibold text-zinc-600 mb-1">Kode MK</label>
                             <input type="text" id="master-kode" class="w-full px-3 py-2 text-xs border border-line rounded-md focus:outline-none focus:border-accent" placeholder="Contoh: INF102">
@@ -220,12 +217,11 @@
                                     <th class="p-3 px-5">Kode MK</th>
                                     <th class="p-3">Mata Kuliah</th>
                                     <th class="p-3 text-center w-24">Bobot</th>
-                                    <th class="p-3 px-5 text-center w-20">Aksi</th>
+                                    <th class="p-3 px-5 text-center w-24">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody id="table-master-body" class="divide-y divide-line"></tbody>
                         </table>
-                        <div id="empty-master-state" class="p-8 text-center text-xs text-muted">Belum ada kurikulum terdaftar.</div>
                     </div>
                 </div>
             </section>
@@ -236,13 +232,8 @@
                     <h2 class="text-xl font-bold tracking-tight">Input Komponen Nilai Mahasiswa</h2>
                     <p class="text-xs text-ink-soft mt-0.5">Entry data perolehan nilai hasil studi semester mahasiswa.</p>
                 </div>
-                <div id="alert-no-master" class="hidden bg-red-50 border border-red-200 text-red-800 p-4 rounded-xl text-xs flex items-center gap-3">
-                    <i class="fas fa-triangle-exclamation text-base"></i>
-                    <span><strong>Perhatian:</strong> Master data matakuliah masih kosong. Harap isi menu Master Matakuliah terlebih dahulu agar formulir ini aktif.</span>
-                </div>
-                <form id="form-nilai" onsubmit="handleFormSubmit(event)" class="bg-white border border-line shadow-sm rounded-xl p-6 space-y-6">
+                <form id="form-nilai" class="bg-white border border-line shadow-sm rounded-xl p-6 space-y-6">
                     <div class="grid md:grid-cols-2 gap-5">
-                        <!-- Kolom Kiri: Biodata -->
                         <div class="space-y-4">
                             <h3 class="text-xs font-bold text-accent uppercase tracking-wider border-b border-line pb-1">Identitas Mahasiswa</h3>
                             <div>
@@ -271,12 +262,11 @@
                                 <div class="field-error text-[10px] text-danger mt-1 items-center gap-1" data-for="input-semester"><i class="fas fa-circle-exclamation"></i><span></span></div>
                             </div>
                         </div>
-                        <!-- Kolom Kanan: Perkuliahan -->
                         <div class="space-y-4">
                             <h3 class="text-xs font-bold text-accent uppercase tracking-wider border-b border-line pb-1">Detail Perkuliahan</h3>
                             <div>
                                 <label class="block text-xs font-semibold text-zinc-600 mb-1">Mata Kuliah</label>
-                                <select id="input-matkul" onchange="updateSksDisplay()" class="w-full px-3 py-2 text-xs border border-line rounded-md focus:outline-none focus:border-accent bg-white"></select>
+                                <select id="input-matkul" class="w-full px-3 py-2 text-xs border border-line rounded-md focus:outline-none focus:border-accent bg-white"></select>
                                 <div class="field-error text-[10px] text-danger mt-1 items-center gap-1" data-for="input-matkul"><i class="fas fa-circle-exclamation"></i><span></span></div>
                             </div>
                             <div>
@@ -292,7 +282,6 @@
                         </div>
                     </div>
 
-                    <!-- Komponen Nilai Angka -->
                     <div class="bg-surface p-4 rounded-xl border border-line space-y-4">
                         <h3 class="text-xs font-bold text-ink-soft uppercase tracking-wider">Komponen Penilaian (Skala 0 - 100)</h3>
                         <div class="grid grid-cols-3 gap-4">
@@ -329,7 +318,6 @@
                     <p class="text-xs text-ink-soft mt-0.5">Daftar akumulasi indeks prestasi seluruh mahasiswa terdata.</p>
                 </div>
                 
-                <!-- Tabel Master Rekap Mahasiswa -->
                 <div class="bg-white rounded-xl border border-line shadow-sm overflow-hidden no-print">
                     <table class="w-full text-left">
                         <thead class="bg-surface border-b border-line text-[10px] uppercase font-semibold text-ink-soft">
@@ -337,12 +325,11 @@
                                 <th class="p-4 px-5">Mahasiswa</th>
                                 <th class="p-4 text-center w-32">Total SKS</th>
                                 <th class="p-4 text-center w-28">IPK Terkini</th>
-                                <th class="p-4 px-5 text-center w-48">Aksi Rekaman</th>
+                                <th class="p-4 px-5 text-center w-56">Aksi Rekaman</th>
                             </tr>
                         </thead>
                         <tbody id="table-mhs-body" class="divide-y divide-line"></tbody>
                     </table>
-                    <div id="empty-state" class="hidden p-12 text-center text-xs text-muted">Belum ada rekapitulasi data mahasiswa yang tersimpan.</div>
                 </div>
 
                 <!-- SUB-SECTION DETAIL TRANSKRIP VIEW MAHASISWA -->
@@ -361,14 +348,13 @@
                         </div>
                     </div>
 
-                    <!-- Widget Nilai IPK & Predikat -->
                     <div class="grid grid-cols-2 gap-4 bg-surface p-4 rounded-xl border border-line">
                         <div>
                             <p class="text-[10px] font-semibold text-muted uppercase tracking-wide">Indeks Prestasi Kumulatif (IPK)</p>
                             <p id="detail-ipk" class="text-3xl font-extrabold text-accent mt-0.5 font-num">0.00</p>
                         </div>
                         <div>
-                            <p class="text-[10px] font-semibold text-muted uppercase tracking-wide">Predikat Kelulusan Mandiri</p>
+                            <p class="text-[10px] font-semibold text-muted uppercase tracking-wide">Predikat Kelulusan</p>
                             <p id="detail-status" class="text-sm font-bold text-ink mt-2">-</p>
                         </div>
                     </div>
