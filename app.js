@@ -1,7 +1,7 @@
 // =========================================================================
 // 1. SYSTEM AUTHENTICATION (LAMAN LOGIN)
 // =========================================================================
-const AUTH_CREDENTIALS = { username: 'admin', password: 'password123' };
+const AUTH_CREDENTIALS = { username: 'admin', password: 'admin123' };
 
 function checkAuthStatus() {
     if (sessionStorage.getItem('sinilai_auth') === 'authenticated') {
