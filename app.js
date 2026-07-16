@@ -1,769 +1,487 @@
-// --- Data Management ---
+// =========================================================================
+// 1. SYSTEM AUTHENTICATION (LAMAN LOGIN)
+// =========================================================================
+const AUTH_CREDENTIALS = { username: 'admin', password: 'password123' };
+
+function checkAuthStatus() {
+    if (sessionStorage.getItem('sinilai_auth') === 'authenticated') {
+        injectLoginScreen(true);
+        fetchDataFromGoogleSheets();
+    } else {
+        injectLoginScreen(false);
+    }
+}
+
+function injectLoginScreen(isAuthenticated) {
+    let loginEl = document.getElementById('login-overlay-screen');
+    if (isAuthenticated) { if (loginEl) loginEl.remove(); return; }
+    if (!loginEl) {
+        loginEl = document.createElement('div');
+        loginEl.id = 'login-overlay-screen';
+        loginEl.className = 'fixed inset-0 bg-zinc-900 z-50 flex items-center justify-center p-4 selection:bg-accent-soft selection:text-accent';
+        loginEl.innerHTML = `
+            <div class="bg-white w-full max-w-sm rounded-xl border border-zinc-200 shadow-xl p-6 md:p-8 space-y-6">
+                <div class="text-center">
+                    <div class="bg-[#1D4E89] text-white w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-3"><i class="fas fa-graduation-cap text-xl"></i></div>
+                    <h2 class="text-xl font-bold text-zinc-900 tracking-tight">SiNilai Pro</h2>
+                    <p class="text-xs text-zinc-500 mt-1">Sistem Manajemen Akademik & Nilai</p>
+                </div>
+                <form id="form-login-system" class="space-y-4">
+                    <div id="login-error-msg" class="hidden text-xs text-red-700 bg-red-50 border border-red-200 p-3 rounded-md flex items-center gap-2"><i class="fas fa-circle-exclamation"></i><span>Kredensial salah.</span></div>
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-600 mb-1.5">Username</label>
+                        <input type="text" id="login-username" required class="w-full px-3 py-2.5 text-sm border border-zinc-200 rounded-md focus:outline-none focus:border-[#1D4E89]">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-zinc-600 mb-1.5">Password</label>
+                        <input type="password" id="login-password" required class="w-full px-3 py-2.5 text-sm border border-zinc-200 rounded-md focus:outline-none focus:border-[#1D4E89]">
+                    </div>
+                    <button type="submit" class="w-full bg-[#1D4E89] hover:bg-[#163B68] text-white text-sm font-medium py-2.5 px-4 rounded-md transition-colors"><i class="fas fa-sign-in-alt mr-2"></i> Masuk</button>
+                </form>
+            </div>`;
+        document.body.appendChild(loginEl);
+        document.getElementById('form-login-system').addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (document.getElementById('login-username').value.trim() === AUTH_CREDENTIALS.username && document.getElementById('login-password').value === AUTH_CREDENTIALS.password) {
+                sessionStorage.setItem('sinilai_auth', 'authenticated');
+                injectLoginScreen(true);
+                fetchDataFromGoogleSheets();
+                showToast('Login berhasil!', 'success');
+            } else { document.getElementById('login-error-msg').classList.remove('hidden'); }
+        });
+    }
+}
+
+function handleLogout() { sessionStorage.removeItem('sinilai_auth'); location.reload(); }
+
+// =========================================================================
+// 2. DATA MANAGEMENT & CORE VARIABLES
+// =========================================================================
 const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyziWKgKXyBjr_OmBxiQ31PxdjtZuZ7f1VKp0HtlunzKA6uAts-I87sCoMqsIQphB7-vQ/exec';
 
 let appData = { mataKuliah: {}, students: {}, dosen: {} };
+const scale = { 'A': 4.0, 'B+': 3.5, 'B': 3.0, 'C+': 2.5, 'C': 2.0, 'D': 1.0, 'E': 0.0 };
 
-const scale = {
-    'A': 4.0,
-    'B+': 3.5,
-    'B': 3.0,
-    'C+': 2.5,
-    'C': 2.0,
-    'D': 1.0,
-    'E': 0.0
-};
+// Variabel bantu untuk menyimpan status edit
+let editState = { dosenNidn: null, matkulKode: null, nilaiIndex: null, nilaiNim: null, nilaiSemester: null };
 
-function getData() {
-    return appData;
-}
-
-// Konversi Nilai Komparatif Otomatis ke Skala Huruf
 function convertToGradeLetter(score) {
-    if (score >= 85) return 'A';
-    if (score >= 75) return 'B+';
-    if (score >= 68) return 'B';
-    if (score >= 60) return 'C+';
-    if (score >= 50) return 'C';
-    if (score >= 40) return 'D';
-    return 'E';
+    if (score >= 85) return 'A'; if (score >= 75) return 'B+'; if (score >= 68) return 'B';
+    if (score >= 60) return 'C+'; if (score >= 50) return 'C'; if (score >= 40) return 'D'; return 'E';
 }
 
 function sendToGoogleSheets(payload) {
-  fetch(GOOGLE_SHEETS_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'text/plain;charset=utf-8'
-    },
-    body: JSON.stringify(payload),
-    redirect: 'follow'
-  })
-  .then(() => {
-    console.log("Sync request to Google Sheets completed.");
-  })
-  .catch((err) => {
-    console.error("Error syncing to Google Sheets:", err);
-  });
+    fetch(GOOGLE_SHEETS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) })
+    .catch(err => console.error("Sheets Sync Error:", err));
 }
 
 function sendToWhatsApp(payload) {
-    fetch('http://localhost:3000/send-wa', {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: {
-            'Content-Type': 'text/plain'
-        },
-        body: JSON.stringify(payload)
-    }).then(() => {
-        console.log("WA notification request sent.");
-    }).catch(err => {
-        console.error("WA Server offline or error:", err);
-    });
+    fetch('http://localhost:3000/send-wa', { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) })
+    .catch(err => console.error("WA Server Error:", err));
 }
 
-// --- Fetch Data from Sheets ---
 async function fetchDataFromGoogleSheets() {
     const overlay = document.getElementById('loading-overlay');
     try {
         const response = await fetch(GOOGLE_SHEETS_URL);
         const data = await response.json();
-
         appData = { mataKuliah: {}, students: {}, dosen: {} };
 
-        // Parsing Master Matkul
-        if (data.mataKuliah) {
-            data.mataKuliah.forEach(mk => {
-                appData.mataKuliah[mk.kode] = {
-                    kode: mk.kode,
-                    nama: mk.nama,
-                    sks: parseInt(mk.sks)
-                };
-            });
-        }
-
-        // Parsing Master Dosen
-        if (data.dosen) {
-            data.dosen.forEach(ds => {
-                appData.dosen[ds.nidn] = {
-                    nidn: ds.nidn,
-                    nama: ds.nama
-                };
-            });
-        }
-
-        // Parsing Students
+        if (data.mataKuliah) data.mataKuliah.forEach(mk => appData.mataKuliah[mk.kode] = { kode: mk.kode, nama: mk.nama, sks: parseInt(mk.sks) });
+        if (data.dosen) data.dosen.forEach(ds => appData.dosen[ds.nidn] = { nidn: ds.nidn, nama: ds.nama });
         if (data.students) {
             data.students.forEach(row => {
-                const nim = row.nim;
-                const semester = row.semester;
-
-                if (!appData.students[nim]) {
-                    appData.students[nim] = {
-                        nim: nim,
-                        nama: row.nama,
-                        semesters: {}
-                    };
-                }
-
-                if (!appData.students[nim].semesters[semester]) {
-                    appData.students[nim].semesters[semester] = [];
-                }
-
-                const findMatkul = Object.values(appData.mataKuliah).find(m => m.nama === row.matkul);
-                const kodeMk = findMatkul ? findMatkul.kode : 'MK-';
-
+                const nim = row.nim, semester = row.semester;
+                if (!appData.students[nim]) appData.students[nim] = { nim: nim, nama: row.nama, semesters: {} };
+                if (!appData.students[nim].semesters[semester]) appData.students[nim].semesters[semester] = [];
+                const findMK = Object.values(appData.mataKuliah).find(m => m.nama === row.matkul);
                 appData.students[nim].semesters[semester].push({
-                    kode: kodeMk,
-                    matkul: row.matkul,
-                    sks: parseInt(row.sks),
-                    dosen: row.dosen || 'Dosen Pengampu',
-                    nilaiHuruf: row.nilaiHuruf,
-                    nilaiAngka: scale[row.nilaiHuruf] || 0
+                    kode: findMK ? findMK.kode : 'MK-', matkul: row.matkul, sks: parseInt(row.sks), dosen: row.dosen || 'Dosen Pengampu',
+                    nilaiHuruf: row.nilaiHuruf, nilaiAngka: scale[row.nilaiHuruf] || 0,
+                    nilaiTugas: row.nilaiTugas || 0, nilaiUts: row.nilaiUts || 0, nilaiUas: row.nilaiUas || 0
                 });
             });
         }
-
-        updateDashboard();
-        updateMasterView();
-        updateDosenView();
-        populateMatkulDropdown();
-        populateDosenDropdown();
-        updateView();
-
-        overlay.classList.add('opacity-0', 'pointer-events-none');
-        setTimeout(() => overlay.classList.add('hidden'), 300);
-
-    } catch (error) {
-        console.error("Error fetching data:", error);
-        showToast('Gagal memuat data dari Sheets. Demo lokal aktif.', 'error');
-        overlay.classList.add('opacity-0', 'pointer-events-none');
-        setTimeout(() => overlay.classList.add('hidden'), 300);
-    }
+        refreshAllViews();
+    } catch (error) { showToast('Gagal memuat data online. Menggunakan data lokal.', 'error'); }
+    if (overlay) { overlay.classList.add('hidden'); }
 }
 
-// --- Navigation ---
-let isMobileMenuOpen = false;
+function refreshAllViews() {
+    updateDashboard(); updateMasterView(); updateDosenView(); populateMatkulDropdown(); populateDosenDropdown(); updateView();
+}
 
+// =========================================================================
+// 3. NAVIGATION & UI UTILITIES
+// =========================================================================
+let isMobileMenuOpen = false;
 function toggleMobileMenu() {
     const nav = document.getElementById('sidebar-nav');
     isMobileMenuOpen = !isMobileMenuOpen;
-    if (isMobileMenuOpen) {
-        nav.classList.remove('hidden');
-    } else {
-        nav.classList.add('hidden');
-    }
+    isMobileMenuOpen ? nav.classList.remove('hidden') : nav.classList.add('hidden');
 }
 
 function switchTab(tabId) {
     ['dashboard', 'dosen', 'master', 'input', 'view'].forEach(id => {
-        const sec = document.getElementById(`sec-${id}`);
-        const nav = document.getElementById(`nav-${id}`);
-        if (sec) sec.classList.add('hidden');
-        if (nav) nav.classList.remove('nav-active');
+        if (document.getElementById(`sec-${id}`)) document.getElementById(`sec-${id}`).classList.add('hidden');
+        if (document.getElementById(`nav-${id}`)) document.getElementById(`nav-${id}`).classList.remove('nav-active');
     });
-
-    const activeSec = document.getElementById(`sec-${tabId}`);
-    const activeNav = document.getElementById(`nav-${tabId}`);
-    if (activeSec) activeSec.classList.remove('hidden');
-    if (activeNav) activeNav.classList.add('nav-active');
-
-    if (window.innerWidth < 768 && isMobileMenuOpen) {
-        toggleMobileMenu();
-    }
-
-    if (tabId === 'dashboard') updateDashboard();
-    if (tabId === 'dosen') updateDosenView();
-    if (tabId === 'master') updateMasterView();
-    if (tabId === 'input') {
-        populateMatkulDropdown();
-        populateDosenDropdown();
-    }
-    if (tabId === 'view') updateView();
-    if (tabId !== 'view') closeDetail();
+    if (document.getElementById(`sec-${tabId}`)) document.getElementById(`sec-${tabId}`).classList.remove('hidden');
+    if (document.getElementById(`nav-${tabId}`)) document.getElementById(`nav-${tabId}`).classList.add('nav-active');
+    if (window.innerWidth < 768 && isMobileMenuOpen) toggleMobileMenu();
+    refreshAllViews(); closeDetail();
 }
 
-// --- Toast Notification ---
 function showToast(message, type = 'success') {
-    const toast = document.getElementById('toast');
-    const msgEl = document.getElementById('toast-msg');
-    const iconEl = document.getElementById('toast-icon');
-
+    const toast = document.getElementById('toast'), msgEl = document.getElementById('toast-msg'), iconEl = document.getElementById('toast-icon');
     msgEl.innerText = message;
-
-    if (type === 'error') {
-        iconEl.innerHTML = '<i class="fas fa-circle-exclamation text-danger-line"></i>';
-    } else {
-        iconEl.innerHTML = '<i class="fas fa-check-circle text-success-line"></i>';
-    }
-
+    iconEl.innerHTML = type === 'error' ? '<i class="fas fa-circle-exclamation text-danger-line"></i>' : '<i class="fas fa-check-circle text-success-line"></i>';
     toast.classList.remove('translate-y-full', 'opacity-0');
-
-    clearTimeout(showToast._t);
-    showToast._t = setTimeout(() => {
-        toast.classList.add('translate-y-full', 'opacity-0');
-    }, 3500);
+    clearTimeout(window.toastT); window.toastT = setTimeout(() => toast.classList.add('translate-y-full', 'opacity-0'), 3000);
 }
 
-// --- Validation Helpers ---
-function showFieldError(fieldId, message) {
-    const input = document.getElementById(fieldId);
-    const errorEl = document.querySelector(`.field-error[data-for="${fieldId}"]`);
-    if (input) input.classList.add('invalid');
-    if (errorEl) {
-        errorEl.querySelector('span').innerText = message;
-        errorEl.classList.add('show');
+function showFieldError(id, msg) {
+    if (document.getElementById(id)) document.getElementById(id).classList.add('invalid');
+    const err = document.querySelector(`.field-error[data-for="${id}"]`);
+    if (err) { err.querySelector('span').innerText = msg; err.classList.add('show'); }
+}
+function clearFieldError(id) {
+    if (document.getElementById(id)) document.getElementById(id).classList.remove('invalid');
+    const err = document.querySelector(`.field-error[data-for="${id}"]`);
+    if (err) err.classList.remove('show');
+}
+
+// =========================================================================
+// 4. MODULE: DOSEN (EDIT & HAPUS)
+// =========================================================================
+function handleDosenSubmit(e) {
+    e.preventDefault();
+    const nidn = document.getElementById('dosen-nidn').value.trim(), nama = document.getElementById('dosen-nama').value.trim();
+    if (!nidn || !nama) return showToast('Lengkapi data dosen!', 'error');
+
+    let action = 'master_dosen';
+    if (editState.dosenNidn) {
+        if (editState.dosenNidn !== nidn) delete appData.dosen[editState.dosenNidn];
+        action = 'edit_dosen';
+        editState.dosenNidn = null;
     }
-}
-
-function clearFieldError(fieldId) {
-    const input = document.getElementById(fieldId);
-    const errorEl = document.querySelector(`.field-error[data-for="${fieldId}"]`);
-    if (input) input.classList.remove('invalid');
-    if (errorEl) errorEl.classList.remove('show');
-}
-
-function clearFormErrors(formEl) {
-    if (!formEl) return;
-    formEl.querySelectorAll('.field-error').forEach(el => el.classList.remove('show'));
-    formEl.querySelectorAll('.invalid').forEach(el => el.classList.remove('invalid'));
-}
-
-// --- MASTER DATA DOSEN ---
-function validateDosenField(fieldId) {
-    if (fieldId === 'dosen-nidn') {
-        const val = document.getElementById('dosen-nidn').value.trim();
-        if (!val) { showFieldError('dosen-nidn', 'NIDN wajib diisi.'); return false; }
-        clearFieldError('dosen-nidn');
-        return true;
-    }
-    if (fieldId === 'dosen-nama') {
-        const val = document.getElementById('dosen-nama').value.trim();
-        if (!val) { showFieldError('dosen-nama', 'Nama dosen wajib diisi.'); return false; }
-        clearFieldError('dosen-nama');
-        return true;
-    }
-    return true;
-}
-
-function handleDosenSubmit(event) {
-    event.preventDefault();
-    const vNidn = validateDosenField('dosen-nidn');
-    const vNama = validateDosenField('dosen-nama');
-
-    if (!vNidn || !vNama) {
-        showToast('Harap periksa isian data dosen.', 'error');
-        return;
-    }
-
-    const nidn = document.getElementById('dosen-nidn').value.trim();
-    const nama = document.getElementById('dosen-nama').value.trim();
 
     appData.dosen[nidn] = { nidn, nama };
-
-    const payload = {
-        id: Date.now(),
-        action: 'master_dosen',
-        nidn: nidn,
-        namaDosen: nama
-    };
-
-    sendToGoogleSheets(payload);
-    sendToWhatsApp(payload);
-
+    sendToGoogleSheets({ id: Date.now(), action, nidn, namaDosen: nama });
     document.getElementById('form-dosen').reset();
-    clearFormErrors(document.getElementById('form-dosen'));
-    updateDosenView();
-    updateDashboard();
-    showToast(`Dosen ${nama} berhasil disimpan dan disinkron!`);
+    document.getElementById('dosen-nidn').disabled = false;
+    updateDosenView(); updateDashboard();
+    showToast('Data dosen berhasil disimpan!');
+}
+
+function editDosen(nidn) {
+    const ds = appData.dosen[nidn];
+    if (!ds) return;
+    document.getElementById('dosen-nidn').value = ds.nidn;
+    document.getElementById('dosen-nidn').disabled = true; // Kunci primary key saat edit
+    document.getElementById('dosen-nama').value = ds.nama;
+    editState.dosenNidn = nidn;
+    showToast('Silakan ubah nama dosen pada form input.');
+}
+
+function deleteDosen(nidn) {
+    if (confirm('Hapus dosen ini?')) {
+        sendToGoogleSheets({ id: Date.now(), action: 'delete_dosen', nidn });
+        delete appData.dosen[nidn];
+        updateDosenView(); updateDashboard();
+        showToast('Dosen berhasil dihapus.');
+    }
 }
 
 function updateDosenView() {
     const tbody = document.getElementById('table-dosen-body');
-    const emptyState = document.getElementById('empty-dosen-state');
-    if (!tbody) return;
-
-    tbody.innerHTML = '';
-    const dosens = Object.values(appData.dosen);
-
-    if (dosens.length === 0) {
-        if (emptyState) emptyState.classList.remove('hidden');
-    } else {
-        if (emptyState) emptyState.classList.add('hidden');
-        dosens.forEach(ds => {
-            const tr = document.createElement('tr');
-            tr.className = 'hover:bg-surface transition-colors';
-            tr.innerHTML = `
-                <td class="p-3.5 px-5 text-sm font-semibold text-ink font-num">${ds.nidn}</td>
-                <td class="p-3.5 text-sm text-ink-soft">${ds.nama}</td>
-                <td class="p-3.5 px-5 text-center">
-                    <button onclick="deleteDosen('${ds.nidn}')" class="text-muted hover:text-danger transition-colors p-2 rounded-md hover:bg-danger-soft">
-                        <i class="fas fa-trash text-sm"></i>
-                    </button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
-    }
-}
-
-function deleteDosen(nidn) {
-    delete appData.dosen[nidn];
-    updateDosenView();
-    updateDashboard();
-    showToast("Dosen berhasil dihapus.", "success");
-}
-
-function populateDosenDropdown() {
-    const select = document.getElementById('input-dosen');
-    if (!select) return;
-    select.innerHTML = '<option value="" disabled selected>Pilih Dosen</option>';
+    if (!tbody) return; tbody.innerHTML = '';
     Object.values(appData.dosen).forEach(ds => {
-        const opt = document.createElement('option');
-        opt.value = ds.nama;
-        opt.text = ds.nama;
-        select.appendChild(opt);
+        tbody.innerHTML += `
+            <tr class="hover:bg-surface transition-colors">
+                <td class="p-3 px-5 text-sm font-semibold text-ink font-num">${ds.nidn}</td>
+                <td class="p-3 text-sm text-ink-soft">${ds.nama}</td>
+                <td class="p-3 px-5 text-center flex justify-center gap-2">
+                    <button onclick="editDosen('${ds.nidn}')" class="text-accent hover:bg-accent-soft p-1.5 rounded"><i class="fas fa-edit"></i></button>
+                    <button onclick="deleteDosen('${ds.nidn}')" class="text-danger hover:bg-danger-soft p-1.5 rounded"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>`;
     });
 }
 
-// --- MASTER DATA MATKUL ---
-function validateMasterField(fieldId) {
-    if (fieldId === 'master-kode') {
-        const val = document.getElementById('master-kode').value.trim();
-        if (!val) { showFieldError('master-kode', 'Kode MK wajib diisi.'); return false; }
-        clearFieldError('master-kode');
-        return true;
-    }
-    if (fieldId === 'master-nama') {
-        const val = document.getElementById('master-nama').value.trim();
-        if (!val) { showFieldError('master-nama', 'Nama mata kuliah wajib diisi.'); return false; }
-        clearFieldError('master-nama');
-        return true;
-    }
-    if (fieldId === 'master-sks') {
-        const val = document.getElementById('master-sks').value;
-        const num = parseInt(val);
-        if (!val) { showFieldError('master-sks', 'SKS wajib diisi.'); return false; }
-        if (isNaN(num) || num < 1 || num > 6) { showFieldError('master-sks', 'SKS harus di antara 1 dan 6.'); return false; }
-        clearFieldError('master-sks');
-        return true;
-    }
-    return true;
+function populateDosenDropdown() {
+    const select = document.getElementById('input-dosen'); if (!select) return;
+    select.innerHTML = '<option value="" disabled selected>Pilih Dosen</option>';
+    Object.values(appData.dosen).forEach(ds => select.innerHTML += `<option value="${ds.nama}">${ds.nama}</option>`);
 }
 
-function handleMasterSubmit(event) {
-    event.preventDefault();
-
-    const validKode = validateMasterField('master-kode');
-    const validNama = validateMasterField('master-nama');
-    const validSks = validateMasterField('master-sks');
-
-    if (!validKode || !validNama || !validSks) {
-        showToast('Periksa kembali data yang diisi.', 'error');
-        return;
-    }
-
+// =========================================================================
+// 5. MODULE: MATA KULIAH (EDIT & HAPUS)
+// =========================================================================
+function handleMasterSubmit(e) {
+    e.preventDefault();
     const kode = document.getElementById('master-kode').value.trim().toUpperCase();
     const nama = document.getElementById('master-nama').value.trim();
     const sks = parseInt(document.getElementById('master-sks').value);
+    if (!kode || !nama || isNaN(sks)) return showToast('Lengkapi data matakuliah!', 'error');
 
-    const isUpdate = !!appData.mataKuliah[kode];
+    let action = 'master_matkul';
+    if (editState.matkulKode) {
+        if (editState.matkulKode !== kode) delete appData.mataKuliah[editState.matkulKode];
+        action = 'edit_matkul';
+        editState.matkulKode = null;
+    }
+
     appData.mataKuliah[kode] = { kode, nama, sks };
-
-    const payload = {
-        id: Date.now(),
-        action: 'master_matkul',
-        kode: kode,
-        namaMK: nama,
-        sks: sks
-    };
-
-    sendToGoogleSheets(payload);
-    sendToWhatsApp(payload);
-
+    sendToGoogleSheets({ id: Date.now(), action, kode, namaMK: nama, sks });
     document.getElementById('form-master').reset();
-    clearFormErrors(document.getElementById('form-master'));
-    updateMasterView();
-    updateDashboard();
-    showToast(isUpdate ? `Mata kuliah ${nama} diperbarui!` : `Mata kuliah ${nama} ditambahkan!`);
+    document.getElementById('master-kode').disabled = false;
+    updateMasterView(); updateDashboard();
+    showToast('Mata kuliah berhasil disimpan!');
+}
+
+function editMaster(kode) {
+    const mk = appData.mataKuliah[kode]; if (!mk) return;
+    document.getElementById('master-kode').value = mk.kode;
+    document.getElementById('master-kode').disabled = true;
+    document.getElementById('master-nama').value = mk.nama;
+    document.getElementById('master-sks').value = mk.sks;
+    editState.matkulKode = kode;
+    showToast('Silakan sesuaikan data pada formulir.');
+}
+
+/* Penambahan fungsi hapus data mata kuliah */
+function deleteMaster(kode) {
+    if (confirm('Hapus mata kuliah ini dari master kurikulum?')) {
+        sendToGoogleSheets({ id: Date.now(), action: 'delete_matkul', kode });
+        delete appData.mataKuliah[kode];
+        updateMasterView(); updateDashboard();
+        showToast('Mata kuliah berhasil dihapus.', 'success');
+    }
 }
 
 function updateMasterView() {
-    const tbody = document.getElementById('table-master-body');
-    const emptyState = document.getElementById('empty-master-state');
-    if (!tbody) return;
-
-    tbody.innerHTML = '';
-    const matkuls = Object.values(appData.mataKuliah);
-
-    if (matkuls.length === 0) {
-        if (emptyState) emptyState.classList.remove('hidden');
-    } else {
-        if (emptyState) emptyState.classList.add('hidden');
-        matkuls.forEach(mk => {
-            const tr = document.createElement('tr');
-            tr.className = 'hover:bg-surface transition-colors';
-            tr.innerHTML = `
-                <td class="p-3.5 px-5 text-sm font-semibold text-ink font-num">${mk.kode}</td>
-                <td class="p-3.5 text-sm text-ink-soft">${mk.nama}</td>
-                <td class="p-3.5 text-sm text-center font-medium text-ink font-num">${mk.sks}</td>
-                <td class="p-3.5 px-5 text-center">
-                    <button onclick="deleteMaster('${mk.kode}')" class="text-muted hover:text-danger transition-colors p-2 rounded-md hover:bg-danger-soft">
-                        <i class="fas fa-trash text-sm"></i>
-                    </button>
+    const tbody = document.getElementById('table-master-body'); if (!tbody) return; tbody.innerHTML = '';
+    Object.values(appData.mataKuliah).forEach(mk => {
+        tbody.innerHTML += `
+            <tr class="hover:bg-surface transition-colors">
+                <td class="p-3 px-5 text-sm font-semibold text-ink font-num">${mk.kode}</td>
+                <td class="p-3 text-sm text-ink-soft">${mk.nama}</td>
+                <td class="p-3 text-center text-sm font-num">${mk.sks}</td>
+                <td class="p-3 px-5 text-center flex justify-center gap-2">
+                    <button onclick="editMaster('${mk.kode}')" class="text-accent hover:bg-accent-soft p-1.5 rounded"><i class="fas fa-edit"></i></button>
+                    <button onclick="deleteMaster('${mk.kode}')" class="text-danger hover:bg-danger-soft p-1.5 rounded"><i class="fas fa-trash"></i></button>
                 </td>
-            `;
-            tbody.appendChild(tr);
-        });
-    }
+            </tr>`;
+    });
 }
 
-function deleteMaster(kode) {
-    delete appData.mataKuliah[kode];
-    updateMasterView();
-    updateDashboard();
-    showToast('Mata kuliah dihapus.', 'success');
-}
-
-// --- INPUT & KALKULASI NILAI ---
 function populateMatkulDropdown() {
-    const select = document.getElementById('input-matkul');
-    const alertNoMaster = document.getElementById('alert-no-master');
-    const btnSubmit = document.getElementById('btn-submit-nilai');
-    if (!select) return;
-
-    const matkuls = Object.values(appData.mataKuliah);
+    const select = document.getElementById('input-matkul'); if (!select) return;
     select.innerHTML = '<option value="" disabled selected>— Pilih mata kuliah —</option>';
-
-    if (matkuls.length === 0) {
-        if (alertNoMaster) alertNoMaster.classList.remove('hidden');
-        if (btnSubmit) {
-            btnSubmit.disabled = true;
-            btnSubmit.classList.add('opacity-50', 'cursor-not-allowed');
-        }
-    } else {
-        if (alertNoMaster) alertNoMaster.classList.add('hidden');
-        if (btnSubmit) {
-            btnSubmit.disabled = false;
-            btnSubmit.classList.remove('opacity-50', 'cursor-not-allowed');
-        }
-
-        matkuls.forEach(mk => {
-            const option = document.createElement('option');
-            option.value = mk.kode;
-            option.text = `${mk.kode} — ${mk.nama}`;
-            option.setAttribute('data-sks', mk.sks);
-            option.setAttribute('data-nama', mk.nama);
-            select.appendChild(option);
-        });
-    }
-    document.getElementById('display-sks').value = '';
-    document.getElementById('input-sks').value = '';
+    Object.values(appData.mataKuliah).forEach(mk => {
+        select.innerHTML += `<option value="${mk.kode}" data-sks="${mk.sks}" data-nama="${mk.nama}">${mk.kode} — ${mk.nama}</option>`;
+    });
 }
 
 function updateSksDisplay() {
     const select = document.getElementById('input-matkul');
     if (select.selectedIndex > 0) {
-        const option = select.options[select.selectedIndex];
-        const sks = option.getAttribute('data-sks');
-        document.getElementById('display-sks').value = `${sks} SKS`;
-        document.getElementById('input-sks').value = sks;
-        clearFieldError('input-matkul');
+        const opt = select.options[select.selectedIndex];
+        document.getElementById('display-sks').value = `${opt.getAttribute('data-sks')} SKS`;
+        document.getElementById('input-sks').value = opt.getAttribute('data-sks');
     }
 }
 
-function validateNilaiField(fieldId) {
-    const input = document.getElementById(fieldId);
-    if (!input) return true;
-    const val = input.value.trim();
+// =========================================================================
+// 6. MODULE: KOMPONEN NILAI MAHASISWA (EDIT & HAPUS)
+// =========================================================================
+function handleFormSubmit(e) {
+    e.preventDefault();
+    const nim = document.getElementById('input-nim').value.trim(), nama = document.getElementById('input-nama').value.trim(), semester = document.getElementById('input-semester').value;
+    const selectMK = document.getElementById('input-matkul'), dosen = document.getElementById('input-dosen').value;
+    const tgs = parseFloat(document.getElementById('nilai-tugas').value) || 0, uts = parseFloat(document.getElementById('nilai-uts').value) || 0, uas = parseFloat(document.getElementById('nilai-uas').value) || 0;
 
-    if (['input-nim', 'input-nama', 'input-semester', 'input-matkul', 'input-dosen', 'nilai-tugas', 'nilai-uts', 'nilai-uas'].includes(fieldId)) {
-        if (!val) { showFieldError(fieldId, 'Harap isi bagian ini.'); return false; }
-    }
-    if (['nilai-tugas', 'nilai-uts', 'nilai-uas'].includes(fieldId)) {
-        const score = parseFloat(val);
-        if (isNaN(score) || score < 0 || score > 100) {
-            showFieldError(fieldId, 'Nilai harus 0 sampai 100.');
-            return false;
-        }
-    }
-    clearFieldError(fieldId);
-    return true;
-}
+    if (!nim || !nama || !semester || !selectMK.value || !dosen) return showToast('Harap lengkapi formulir nilai!', 'error');
 
-function handleFormSubmit(event) {
-    event.preventDefault();
-
-    const fields = ['input-nim', 'input-nama', 'input-semester', 'input-matkul', 'input-dosen', 'nilai-tugas', 'nilai-uts', 'nilai-uas'];
-    const results = fields.map(validateNilaiField);
-
-    if (results.includes(false)) {
-        showToast('Lengkapi isian data komponen nilai.', 'error');
-        return;
-    }
-
-    const nim = document.getElementById('input-nim').value.trim();
-    const nama = document.getElementById('input-nama').value.trim();
-    const semester = document.getElementById('input-semester').value;
-    const selectMK = document.getElementById('input-matkul');
-    const dosenName = document.getElementById('input-dosen').value;
-
-    const tgs = parseFloat(document.getElementById('nilai-tugas').value) || 0;
-    const uts = parseFloat(document.getElementById('nilai-uts').value) || 0;
-    const uas = parseFloat(document.getElementById('nilai-uas').value) || 0;
-
-    // Kalkulasi Akademik: Komponen Nilai
-    const totalScore = (tgs * 0.3) + (uts * 0.3) + (uas * 0.4);
-    const gradeLetter = convertToGradeLetter(totalScore);
-
-    const kodeMk = selectMK.value;
-    const namaMk = selectMK.options[selectMK.selectedIndex].getAttribute('data-nama');
+    const total = (tgs * 0.3) + (uts * 0.3) + (uas * 0.4), grade = convertToGradeLetter(total);
+    const kodeMk = selectMK.value, namaMk = selectMK.options[selectMK.selectedIndex].getAttribute('data-nama');
     const sks = parseInt(document.getElementById('input-sks').value) || 2;
 
-    if (!appData.students[nim]) {
-        appData.students[nim] = { nim, nama, semesters: {} };
-    } else {
-        appData.students[nim].nama = nama;
+    // Jika dalam mode edit, hapus entri nilai lama terlebih dahulu sebelum menimpa dengan yang baru
+    if (editState.nilaiIndex !== null) {
+        const st = appData.students[editState.nilaiNim];
+        if (st && st.semesters[editState.nilaiSemester]) {
+            st.semesters[editState.nilaiSemester].splice(editState.nilaiIndex, 1);
+            if (st.semesters[editState.nilaiSemester].length === 0) delete st.semesters[editState.nilaiSemester];
+        }
+        editState = { dosenNidn: null, matkulKode: null, nilaiIndex: null, nilaiNim: null, nilaiSemester: null };
+        document.getElementById('input-nim').disabled = false;
+        document.getElementById('input-semester').disabled = false;
     }
 
-    if (!appData.students[nim].semesters[semester]) {
-        appData.students[nim].semesters[semester] = [];
-    }
-
-    const exists = appData.students[nim].semesters[semester].find(mk => mk.kode === kodeMk);
-    if (exists) {
-        showToast('Mata kuliah ini sudah diinput pada semester tersebut.', 'error');
-        return;
-    }
+    if (!appData.students[nim]) appData.students[nim] = { nim, nama, semesters: {} };
+    if (!appData.students[nim].semesters[semester]) appData.students[nim].semesters[semester] = [];
 
     appData.students[nim].semesters[semester].push({
-        kode: kodeMk,
-        matkul: namaMk,
-        sks: sks,
-        dosen: dosenName,
-        nilaiHuruf: gradeLetter,
-        nilaiAngka: scale[gradeLetter] || 0
+        kode: kodeMk, matkul: namaMk, sks: sks, dosen, nilaiHuruf: grade, nilaiAngka: scale[grade] || 0, nilaiTugas: tgs, nilaiUts: uts, nilaiUas: uas
     });
 
-    const currentIpk = calculateIPK(appData.students[nim]).toFixed(2);
-
-    const payload = {
-        id: Date.now(),
-        action: 'input_nilai',
-        nim: nim,
-        nama: nama,
-        semester: semester,
-        matkul: namaMk,
-        sks: sks,
-        dosen: dosenName,
-        nilaiHuruf: gradeLetter,
-        ipk: currentIpk
-    };
-
-    sendToGoogleSheets(payload);
-    sendToWhatsApp(payload);
-
-    // Reset Form Akademik
-    document.getElementById('input-matkul').value = '';
+    sendToGoogleSheets({ id: Date.now(), action: 'input_nilai', nim, nama, semester, matkul: namaMk, sks, dosen, nilaiHuruf: grade, ipk: calculateIPK(appData.students[nim]).toFixed(2) });
+    
+    document.getElementById('form-nilai').reset();
     document.getElementById('display-sks').value = '';
-    document.getElementById('input-sks').value = '';
-    document.getElementById('nilai-tugas').value = '';
-    document.getElementById('nilai-uts').value = '';
-    document.getElementById('nilai-uas').value = '';
-
-    updateDashboard();
-    showToast(`Nilai ${namaMk} (${gradeLetter}) untuk ${nama} berhasil disimpan!`);
+    showToast('Rekor kompetensi nilai mahasiswa berhasil disimpan!');
+    switchTab('view');
 }
 
-// --- CALCULATIONS & STATS ---
+function editNilai(nim, sem, idx) {
+    const st = appData.students[nim]; if (!st || !st.semesters[sem] || !st.semesters[sem][idx]) return;
+    const mk = st.semesters[sem][idx];
+
+    switchTab('input');
+    document.getElementById('input-nim').value = st.nim;
+    document.getElementById('input-nim').disabled = true; // Kunci relasi mahasiswa saat mengubah komponen nilai
+    document.getElementById('input-nama').value = st.nama;
+    document.getElementById('input-semester').value = sem;
+    document.getElementById('input-semester').disabled = true;
+
+    document.getElementById('input-matkul').value = mk.kode;
+    updateSksDisplay();
+    document.getElementById('input-dosen').value = mk.dosen;
+    document.getElementById('nilai-tugas').value = mk.nilaiTugas || 0;
+    document.getElementById('nilai-uts').value = mk.nilaiUts || 0;
+    document.getElementById('nilai-uas').value = mk.nilaiUas || 0;
+
+    editState.nilaiNim = nim; editState.nilaiSemester = sem; editState.nilaiIndex = idx;
+    showToast('Modifikasi nilai komponen aktif.');
+}
+
+// =========================================================================
+// 7. STATISTICS & METRICS CALCULATOR
+// =========================================================================
 function calculateIPK(student) {
-    let totalBobot = 0;
-    let totalSKS = 0;
-    for (const sem in student.semesters) {
-        student.semesters[sem].forEach(mk => {
-            totalBobot += (mk.sks * mk.nilaiAngka);
-            totalSKS += mk.sks;
-        });
-    }
-    return totalSKS === 0 ? 0 : (totalBobot / totalSKS);
+    let b = 0, s = 0;
+    for (const sm in student.semesters) { student.semesters[sm].forEach(m => { b += (m.sks * m.nilaiAngka); s += m.sks; }); }
+    return s === 0 ? 0 : (b / s);
 }
-
+function calculateIPS(semData) {
+    let b = 0, s = 0; semData.forEach(m => { b += (m.sks * m.nilaiAngka); s += m.sks; });
+    return s === 0 ? 0 : (b / s);
+}
 function calculateAverageIPK() {
-    const students = Object.values(appData.students);
-    if (students.length === 0) return 0;
-    let total = 0;
-    students.forEach(st => {
-        total += calculateIPK(st);
-    });
-    return total / students.length;
-}
-
-function calculateIPS(semesterData) {
-    let totalBobot = 0;
-    let totalSKS = 0;
-    semesterData.forEach(mk => {
-        totalBobot += (mk.sks * mk.nilaiAngka);
-        totalSKS += mk.sks;
-    });
-    return totalSKS === 0 ? 0 : (totalBobot / totalSKS);
+    const sts = Object.values(appData.students); if (sts.length === 0) return 0;
+    let t = 0; sts.forEach(s => t += calculateIPK(s)); return t / sts.length;
 }
 
 function updateDashboard() {
-    let totalMhs = Object.keys(appData.students).length;
-    let totalDosen = Object.keys(appData.dosen).length;
-    let totalMatkulMaster = Object.keys(appData.mataKuliah).length;
-    let totalNilai = 0;
-
-    for (const nim in appData.students) {
-        for (const sem in appData.students[nim].semesters) {
-            totalNilai += appData.students[nim].semesters[sem].length;
-        }
-    }
-
-    document.getElementById('stat-mhs').innerText = totalMhs;
-    document.getElementById('stat-dosen').innerText = totalDosen;
-    document.getElementById('stat-matkul-master').innerText = totalMatkulMaster;
-    document.getElementById('stat-nilai').innerText = totalNilai;
-    document.getElementById('stat-avg-ipk').innerText = calculateAverageIPK().toFixed(2);
+    let tm = Object.keys(appData.students).length, td = Object.keys(appData.dosen).length, tk = Object.keys(appData.mataKuliah).length, tn = 0;
+    for (const n in appData.students) { for (const s in appData.students[n].semesters) tn += appData.students[n].semesters[s].length; }
+    if(document.getElementById('stat-mhs')) document.getElementById('stat-mhs').innerText = tm;
+    if(document.getElementById('stat-dosen')) document.getElementById('stat-dosen').innerText = td;
+    if(document.getElementById('stat-matkul-master')) document.getElementById('stat-matkul-master').innerText = tk;
+    if(document.getElementById('stat-nilai')) document.getElementById('stat-nilai').innerText = tn;
+    if(document.getElementById('stat-avg-ipk')) document.getElementById('stat-avg-ipk').innerText = calculateAverageIPK().toFixed(2);
 }
 
-// --- VIEW MANAGEMENT ---
+// =========================================================================
+// 8. TRANSCRIPT REKAP & MANAGEMENT ACTIONS
+// =========================================================================
 function updateView() {
-    const tbody = document.getElementById('table-mhs-body');
-    const emptyState = document.getElementById('empty-state');
-    if (!tbody) return;
-
-    tbody.innerHTML = '';
-    const students = Object.values(appData.students);
-
-    if (students.length === 0) {
-        if (emptyState) emptyState.classList.remove('hidden');
-    } else {
-        if (emptyState) emptyState.classList.add('hidden');
-        students.forEach(student => {
-            let totalSKS = 0;
-            for (const sem in student.semesters) {
-                student.semesters[sem].forEach(mk => totalSKS += mk.sks);
-            }
-
-            const ipk = calculateIPK(student).toFixed(2);
-            const tr = document.createElement('tr');
-            tr.className = 'hover:bg-surface transition-colors';
-            tr.innerHTML = `
+    const tbody = document.getElementById('table-mhs-body'); if (!tbody) return; tbody.innerHTML = '';
+    Object.values(appData.students).forEach(st => {
+        let sks = 0; for (const sm in st.semesters) st.semesters[sm].forEach(m => sks += m.sks);
+        tbody.innerHTML += `
+            <tr class="hover:bg-surface transition-colors">
                 <td class="p-4 px-5">
                     <div class="flex items-center">
-                        <div class="w-8 h-8 rounded-md bg-accent-soft text-accent flex items-center justify-center font-semibold text-sm mr-3 flex-shrink-0">
-                            ${student.nama.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                            <p class="font-medium text-ink text-sm">${student.nama}</p>
-                            <p class="text-xs text-muted font-num">${student.nim}</p>
-                        </div>
+                        <div class="w-8 h-8 rounded-md bg-accent-soft text-accent flex items-center justify-center font-semibold text-sm mr-3 flex-shrink-0">${st.nama.charAt(0).toUpperCase()}</div>
+                        <div><p class="font-medium text-ink text-sm">${st.nama}</p><p class="text-xs text-muted font-num">${st.nim}</p></div>
                     </div>
                 </td>
-                <td class="p-4 text-center text-sm text-ink-soft font-num">${totalSKS}</td>
-                <td class="p-4 text-center">
-                    <span class="bg-accent-soft text-accent border-accent px-2.5 py-1 rounded-md font-semibold text-xs border font-num">${ipk}</span>
+                <td class="p-4 text-center text-sm font-num">${sks}</td>
+                <td class="p-4 text-center"><span class="bg-accent-soft text-accent border border-accent px-2.5 py-1 rounded-md font-semibold text-xs font-num">${calculateIPK(st).toFixed(2)}</span></td>
+                <td class="p-4 px-5 text-center flex items-center justify-center gap-2">
+                    <button onclick="viewDetail('${st.nim}')" class="border border-line text-ink-soft hover:text-accent px-3 py-1.5 rounded-md text-xs font-medium"><i class="fas fa-eye"></i> Rincian</button>
+                    <button onclick="deleteStudentData('${st.nim}')" class="border border-line text-zinc-400 hover:text-danger px-2.5 py-1.5 rounded-md text-xs"><i class="fas fa-trash-can"></i> Hapus Mahasiswa</button>
                 </td>
-                <td class="p-4 px-5 text-center">
-                    <button onclick="viewDetail('${student.nim}')" class="border border-line text-ink-soft hover:text-accent hover:border-accent px-3 py-1.5 rounded-md text-xs font-medium transition-colors">
-                        <i class="fas fa-eye mr-1"></i> Rincian
-                    </button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
+            </tr>`;
+    });
+}
+
+function deleteStudentData(nim) {
+    if (confirm(`Hapus permanen semua data akademik milik mahasiswa dengan NIM ${nim}?`)) {
+        sendToGoogleSheets({ id: Date.now(), action: 'delete_mahasiswa', nim });
+        delete appData.students[nim];
+        updateView(); updateDashboard(); closeDetail();
+        showToast('Rekor mahasiswa berhasil dihapus.');
+    }
+}
+
+function deleteSubjectFromTranscript(nim, sem, kode) {
+    if (confirm(`Hapus matakuliah [${kode}] dari semester ${sem}?`)) {
+        sendToGoogleSheets({ id: Date.now(), action: 'delete_nilai_matkul', nim, semester: sem, kode });
+        const st = appData.students[nim];
+        st.semesters[sem] = st.semesters[sem].filter(m => m.kode !== kode);
+        if (st.semesters[sem].length === 0) delete st.semesters[sem];
+        if (Object.keys(st.semesters).length === 0) { delete appData.students[nim]; closeDetail(); } else { viewDetail(nim); }
+        updateView(); updateDashboard();
+        showToast('Nilai komponen berhasil dihapus.');
     }
 }
 
 function viewDetail(nim) {
-    const student = appData.students[nim];
-    if (!student) return;
-
+    const student = appData.students[nim]; if (!student) return;
     document.getElementById('detail-nim').innerText = `NIM: ${student.nim}`;
     document.getElementById('detail-nama').innerText = student.nama;
-    
-    const ipk = calculateIPK(student);
-    document.getElementById('detail-ipk').innerText = ipk.toFixed(2);
+    const ipk = calculateIPK(student); document.getElementById('detail-ipk').innerText = ipk.toFixed(2);
+    document.getElementById('detail-status').innerText = ipk >= 3.51 ? 'Dengan Pujian (Cum Laude)' : ipk >= 3.0 ? 'Sangat Memuaskan' : ipk >= 2.0 ? 'Memuaskan' : 'Kurang';
 
-    let predikat = 'Kurang';
-    if (ipk >= 3.51) predikat = 'Dengan Pujian (Cum Laude)';
-    else if (ipk >= 3.0) predikat = 'Sangat Memuaskan';
-    else if (ipk >= 2.00) predikat = 'Memuaskan';
-    document.getElementById('detail-status').innerText = predikat;
-
-    const semestersContainer = document.getElementById('detail-semesters');
-    semestersContainer.innerHTML = '';
-
-    const semKeys = Object.keys(student.semesters).sort((a, b) => parseInt(a) - parseInt(b));
-
-    semKeys.forEach(sem => {
-        const mkData = student.semesters[sem];
-        const ips = calculateIPS(mkData).toFixed(2);
-
-        let sksSem = 0;
+    const container = document.getElementById('detail-semesters'); container.innerHTML = '';
+    Object.keys(student.semesters).sort((a,b)=>parseInt(a)-parseInt(b)).forEach(sem => {
         let rows = '';
-
-        mkData.forEach(mk => {
-            sksSem += mk.sks;
+        student.semesters[sem].forEach((mk, idx) => {
             rows += `
-                <tr class="border-b border-line last:border-0 hover:bg-surface transition-colors">
+                <tr class="border-b border-line last:border-0 hover:bg-surface">
                     <td class="py-3 px-4">
                         <p class="text-sm text-ink">${mk.matkul}</p>
-                        <p class="text-[10px] text-muted font-num">${mk.kode || '-'} | Dosen: ${mk.dosen}</p>
+                        <p class="text-[10px] text-muted font-num">${mk.kode} | Dosen: ${mk.dosen}</p>
                     </td>
-                    <td class="py-3 px-4 text-center text-sm text-ink-soft font-num">${mk.sks}</td>
+                    <td class="py-3 px-4 text-center text-sm font-num">${mk.sks}</td>
                     <td class="py-3 px-4 text-center font-bold text-accent">${mk.nilaiHuruf}</td>
-                </tr>
-            `;
+                    <td class="py-3 px-4 text-center no-print flex justify-center gap-2">
+                        <button onclick="editNilai('${student.nim}', '${sem}', ${idx})" class="text-accent hover:bg-accent-soft p-1 rounded" title="Edit Nilai Komponen"><i class="fas fa-edit text-xs"></i></button>
+                        <button onclick="deleteSubjectFromTranscript('${student.nim}', '${sem}', '${mk.kode}')" class="text-danger hover:bg-danger-soft p-1 rounded" title="Hapus"><i class="fas fa-trash text-xs"></i></button>
+                    </td>
+                </tr>`;
         });
-
-        const semHtml = `
+        container.innerHTML += `
             <div class="border border-line rounded-lg overflow-hidden">
                 <div class="bg-surface p-3 px-4 flex justify-between items-center border-b border-line">
                     <h4 class="text-sm font-semibold text-ink">Semester ${sem}</h4>
-                    <div class="flex items-center gap-3 text-xs font-semibold">
-                        <span class="text-muted">IPS: <span class="text-accent font-num">${ips}</span></span>
-                    </div>
+                    <span class="text-xs font-semibold text-muted">IPS: <span class="text-accent font-num">${calculateIPS(student.semesters[sem]).toFixed(2)}</span></span>
                 </div>
                 <table class="w-full text-left">
-                    <thead>
-                        <tr class="text-muted text-[10px] uppercase border-b border-line">
-                            <th class="py-2 px-4">Mata Kuliah</th>
-                            <th class="py-2 text-center w-20">SKS</th>
-                            <th class="py-2 text-center w-24">Nilai</th>
-                        </tr>
-                    </thead>
+                    <thead><tr class="text-muted text-[10px] uppercase border-b border-line"><th class="py-2 px-4">Mata Kuliah</th><th class="py-2 text-center w-20">SKS</th><th class="py-2 text-center w-24">Nilai</th><th class="py-2 text-center w-20 no-print">Aksi</th></tr></thead>
                     <tbody class="bg-white">${rows}</tbody>
                 </table>
-            </div>
-        `;
-        semestersContainer.innerHTML += semHtml;
+            </div>`;
     });
-
     document.getElementById('detail-view').classList.remove('hidden');
     document.getElementById('detail-view').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function closeDetail() {
-    document.getElementById('detail-view').classList.add('hidden');
-}
+function closeDetail() { if(document.getElementById('detail-view')) document.getElementById('detail-view').classList.add('hidden'); }
 
-// --- Live validation wiring ---
-function initLiveValidation() {
-    const masterFields = ['master-kode', 'master-nama', 'master-sks'];
-    masterFields.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('blur', () => validateMasterField(id));
-    });
-
-    const nilaiFields = ['input-nim', 'input-nama', 'input-semester', 'input-matkul', 'input-dosen', 'nilai-tugas', 'nilai-uts', 'nilai-uas'];
-    nilaiFields.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('blur', () => validateNilaiField(id));
-    });
-}
-
-// Run
+// =========================================================================
+// 9. INITIALIZER & LIFECYCLE HOOKS
+// =========================================================================
 window.onload = () => {
-    initLiveValidation();
-    fetchDataFromGoogleSheets();
+    // Hubungkan pemicu event formulir ke fungsi internal baru
+    if(document.getElementById('form-dosen')) document.getElementById('form-dosen').addEventListener('submit', handleDosenSubmit);
+    if(document.getElementById('form-master')) document.getElementById('form-master').addEventListener('submit', handleMasterSubmit);
+    if(document.getElementById('form-nilai')) document.getElementById('form-nilai').addEventListener('submit', handleFormSubmit);
+    if(document.getElementById('input-matkul')) document.getElementById('input-matkul').addEventListener('change', updateSksDisplay);
+    
+    checkAuthStatus();
 };
