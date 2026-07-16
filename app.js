@@ -27,7 +27,7 @@ function injectLoginScreen(isAuthenticated) {
                     <p class="text-xs text-zinc-500 mt-1">Sistem Manajemen Akademik & Nilai</p>
                 </div>
                 <form id="form-login-system" class="space-y-4">
-                    <div id="login-error-msg" class="hidden text-xs text-red-700 bg-red-50 border border-red-200 p-3 rounded-md flex items-center gap-2"><i class="fas fa-circle-exclamation"></i><span>Kredensial salah.</span></div>
+                    <div id="login-error-msg" class="hidden text-xs text-red-700 bg-red-50 border border-red-200 p-3 rounded-md flex items-center gap-2"><i class="fas fa-circle-exclamation"></i><span>Username atau password salah!</span></div>
                     <div>
                         <label class="block text-xs font-semibold text-zinc-600 mb-1.5">Username</label>
                         <input type="text" id="login-username" required class="w-full px-3 py-2.5 text-sm border border-zinc-200 rounded-md focus:outline-none focus:border-[#1D4E89]">
@@ -36,7 +36,7 @@ function injectLoginScreen(isAuthenticated) {
                         <label class="block text-xs font-semibold text-zinc-600 mb-1.5">Password</label>
                         <input type="password" id="login-password" required class="w-full px-3 py-2.5 text-sm border border-zinc-200 rounded-md focus:outline-none focus:border-[#1D4E89]">
                     </div>
-                    <button type="submit" class="w-full bg-[#1D4E89] hover:bg-[#163B68] text-white text-sm font-medium py-2.5 px-4 rounded-md transition-colors"><i class="fas fa-sign-in-alt mr-2"></i> Masuk</button>
+                    <button type="submit" class="w-full bg-[#1D4E89] hover:bg-[#163B68] text-white text-sm font-medium py-2.5 px-4 rounded-md transition-colors"><i class="fas fa-sign-in-alt mr-2"></i> Masuk Sistem</button>
                 </form>
             </div>`;
         document.body.appendChild(loginEl);
@@ -57,7 +57,7 @@ function handleLogout() { sessionStorage.removeItem('sinilai_auth'); location.re
 // =========================================================================
 // 2. DATA MANAGEMENT & CORE VARIABLES
 // =========================================================================
-const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyziWKgKXyBjr_OmBxiQ31PxdjtZuZ7f1VKp0HtlunzKA6uAts-I87sCoMqsIQphB7-vQ/exec';
+const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzUO8zEPBk2PnQqS_h9JDDKveTtzN5SIzOZY8j2hIVUggFN7s2sEJ52XiZMyI205SVwww/exec';
 
 let appData = { mataKuliah: {}, students: {}, dosen: {} };
 const scale = { 'A': 4.0, 'B+': 3.5, 'B': 3.0, 'C+': 2.5, 'C': 2.0, 'D': 1.0, 'E': 0.0 };
@@ -403,7 +403,7 @@ function updateView() {
                 <td class="p-4 text-center"><span class="bg-accent-soft text-accent border border-accent px-2.5 py-1 rounded-md font-semibold text-xs font-num">${calculateIPK(st).toFixed(2)}</span></td>
                 <td class="p-4 px-5 text-center flex items-center justify-center gap-2">
                     <button onclick="viewDetail('${st.nim}')" class="border border-line text-ink-soft hover:text-accent px-3 py-1.5 rounded-md text-xs font-medium"><i class="fas fa-eye"></i> Rincian</button>
-                    <button onclick="deleteStudentData('${st.nim}')" class="border border-line text-zinc-400 hover:text-danger px-2.5 py-1.5 rounded-md text-xs"><i class="fas fa-trash-can"></i> Hapus Mahasiswa</button>
+                    <button onclick="deleteStudentData('${st.nim}')" class="border border-line text-zinc-400 hover:text-danger px-2.5 py-1.5 rounded-md text-xs"><i class="fas fa-trash-can"></i> Hapus</button>
                 </td>
             </tr>`;
     });
@@ -462,7 +462,7 @@ function viewDetail(nim) {
                     <span class="text-xs font-semibold text-muted">IPS: <span class="text-accent font-num">${calculateIPS(student.semesters[sem]).toFixed(2)}</span></span>
                 </div>
                 <table class="w-full text-left">
-                    <thead><tr class="text-muted text-[10px] uppercase border-b border-line"><th class="py-2 px-4">Mata Kuliah</th><th class="py-2 text-center w-20">SKS</th><th class="py-2 text-center w-24">Nilai</th><th class="py-2 text-center w-20 no-print">Aksi</th></tr></thead>
+                    <thead><tr class="text-muted text-[10px] uppercase border-b border-line"><th class="py-2 px-4">Mata Kuliah</th><th class="py-2 text-center w-20">SKS</th><th class="py-2 text-center w-16">Grade</th><th class="py-2 text-center w-32">Aksi</th></tr></thead>
                     <tbody class="bg-white">${rows}</tbody>
                 </table>
             </div>`;
