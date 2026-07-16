@@ -1,10 +1,31 @@
 // --- Data Management ---
 const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyziWKgKXyBjr_OmBxiQ31PxdjtZuZ7f1VKp0HtlunzKA6uAts-I87sCoMqsIQphB7-vQ/exec';
 
-let appData = { mataKuliah: {}, students: {} };
+let appData = { mataKuliah: {}, students: {}, dosen: {} };
+
+const scale = {
+    'A': 4.0,
+    'B+': 3.5,
+    'B': 3.0,
+    'C+': 2.5,
+    'C': 2.0,
+    'D': 1.0,
+    'E': 0.0
+};
 
 function getData() {
     return appData;
+}
+
+// Konversi Nilai Komparatif Otomatis ke Skala Huruf
+function convertToGradeLetter(score) {
+    if (score >= 85) return 'A';
+    if (score >= 75) return 'B+';
+    if (score >= 68) return 'B';
+    if (score >= 60) return 'C+';
+    if (score >= 50) return 'C';
+    if (score >= 40) return 'D';
+    return 'E';
 }
 
 function sendToGoogleSheets(payload) {
@@ -14,7 +35,7 @@ function sendToGoogleSheets(payload) {
       'Content-Type': 'text/plain;charset=utf-8'
     },
     body: JSON.stringify(payload),
-    redirect: 'follow' // Wajib ditambahkan agar sistem redirect Google script berjalan lancar
+    redirect: 'follow'
   })
   .then(() => {
     console.log("Sync request to Google Sheets completed.");
@@ -25,7 +46,6 @@ function sendToGoogleSheets(payload) {
 }
 
 function sendToWhatsApp(payload) {
-    // Fire and forget local POST
     fetch('http://localhost:3000/send-wa', {
         method: 'POST',
         mode: 'no-cors',
@@ -47,10 +67,9 @@ async function fetchDataFromGoogleSheets() {
         const response = await fetch(GOOGLE_SHEETS_URL);
         const data = await response.json();
 
-        // Reconstruct appData from Google Sheets JSON
-        appData = { mataKuliah: {}, students: {} };
+        appData = { mataKuliah: {}, students: {}, dosen: {} };
 
-        // Parse Master Matkul
+        // Parsing Master Matkul
         if (data.mataKuliah) {
             data.mataKuliah.forEach(mk => {
                 appData.mataKuliah[mk.kode] = {
@@ -61,7 +80,17 @@ async function fetchDataFromGoogleSheets() {
             });
         }
 
-        // Parse Students
+        // Parsing Master Dosen
+        if (data.dosen) {
+            data.dosen.forEach(ds => {
+                appData.dosen[ds.nidn] = {
+                    nidn: ds.nidn,
+                    nama: ds.nama
+                };
+            });
+        }
+
+        // Parsing Students
         if (data.students) {
             data.students.forEach(row => {
                 const nim = row.nim;
@@ -79,7 +108,6 @@ async function fetchDataFromGoogleSheets() {
                     appData.students[nim].semesters[semester] = [];
                 }
 
-                // Cari kode MK yang cocok berdasarkan nama mata kuliah dari data master
                 const findMatkul = Object.values(appData.mataKuliah).find(m => m.nama === row.matkul);
                 const kodeMk = findMatkul ? findMatkul.kode : 'MK-';
 
@@ -87,39 +115,30 @@ async function fetchDataFromGoogleSheets() {
                     kode: kodeMk,
                     matkul: row.matkul,
                     sks: parseInt(row.sks),
+                    dosen: row.dosen || 'Dosen Pengampu',
                     nilaiHuruf: row.nilaiHuruf,
                     nilaiAngka: scale[row.nilaiHuruf] || 0
                 });
             });
         }
 
-        // Update UI
         updateDashboard();
         updateMasterView();
+        updateDosenView();
         populateMatkulDropdown();
+        populateDosenDropdown();
         updateView();
 
-        // Hide overlay
         overlay.classList.add('opacity-0', 'pointer-events-none');
         setTimeout(() => overlay.classList.add('hidden'), 300);
 
     } catch (error) {
         console.error("Error fetching data:", error);
-        showToast('Gagal memuat data dari Google Sheets. Periksa koneksi atau URL Web App.', 'error');
+        showToast('Gagal memuat data dari Sheets. Demo lokal aktif.', 'error');
         overlay.classList.add('opacity-0', 'pointer-events-none');
         setTimeout(() => overlay.classList.add('hidden'), 300);
     }
 }
-
-const scale = {
-    'A': 4.0,
-    'B+': 3.5,
-    'B': 3.0,
-    'C+': 2.5,
-    'C': 2.0,
-    'D': 1.0,
-    'E': 0.0
-};
 
 // --- Navigation ---
 let isMobileMenuOpen = false;
@@ -129,38 +148,36 @@ function toggleMobileMenu() {
     isMobileMenuOpen = !isMobileMenuOpen;
     if (isMobileMenuOpen) {
         nav.classList.remove('hidden');
-        nav.classList.add('flex');
     } else {
         nav.classList.add('hidden');
-        nav.classList.remove('flex');
     }
 }
 
 function switchTab(tabId) {
-    // Hide all sections
-    ['dashboard', 'master', 'input', 'view'].forEach(id => {
-        document.getElementById(`sec-${id}`).classList.add('hidden');
-        document.getElementById(`sec-${id}`).classList.remove('block');
-        document.getElementById(`nav-${id}`).classList.remove('nav-active');
+    ['dashboard', 'dosen', 'master', 'input', 'view'].forEach(id => {
+        const sec = document.getElementById(`sec-${id}`);
+        const nav = document.getElementById(`nav-${id}`);
+        if (sec) sec.classList.add('hidden');
+        if (nav) nav.classList.remove('nav-active');
     });
 
-    // Show selected section
-    document.getElementById(`sec-${tabId}`).classList.remove('hidden');
-    document.getElementById(`sec-${tabId}`).classList.add('block');
-    document.getElementById(`nav-${tabId}`).classList.add('nav-active');
+    const activeSec = document.getElementById(`sec-${tabId}`);
+    const activeNav = document.getElementById(`nav-${tabId}`);
+    if (activeSec) activeSec.classList.remove('hidden');
+    if (activeNav) activeNav.classList.add('nav-active');
 
-    // Auto-close mobile menu if open
     if (window.innerWidth < 768 && isMobileMenuOpen) {
         toggleMobileMenu();
     }
 
-    // Trigger updates
     if (tabId === 'dashboard') updateDashboard();
+    if (tabId === 'dosen') updateDosenView();
     if (tabId === 'master') updateMasterView();
-    if (tabId === 'input') populateMatkulDropdown();
+    if (tabId === 'input') {
+        populateMatkulDropdown();
+        populateDosenDropdown();
+    }
     if (tabId === 'view') updateView();
-
-    // Hide detail view when switching away from view tab
     if (tabId !== 'view') closeDetail();
 }
 
@@ -186,7 +203,7 @@ function showToast(message, type = 'success') {
     }, 3500);
 }
 
-// --- Field Validation Helpers ---
+// --- Validation Helpers ---
 function showFieldError(fieldId, message) {
     const input = document.getElementById(fieldId);
     const errorEl = document.querySelector(`.field-error[data-for="${fieldId}"]`);
@@ -205,13 +222,110 @@ function clearFieldError(fieldId) {
 }
 
 function clearFormErrors(formEl) {
+    if (!formEl) return;
     formEl.querySelectorAll('.field-error').forEach(el => el.classList.remove('show'));
     formEl.querySelectorAll('.invalid').forEach(el => el.classList.remove('invalid'));
 }
 
-// --- MASTER DATA LOGIC ---
+// --- MASTER DATA DOSEN ---
+function validateDosenField(fieldId) {
+    if (fieldId === 'dosen-nidn') {
+        const val = document.getElementById('dosen-nidn').value.trim();
+        if (!val) { showFieldError('dosen-nidn', 'NIDN wajib diisi.'); return false; }
+        clearFieldError('dosen-nidn');
+        return true;
+    }
+    if (fieldId === 'dosen-nama') {
+        const val = document.getElementById('dosen-nama').value.trim();
+        if (!val) { showFieldError('dosen-nama', 'Nama dosen wajib diisi.'); return false; }
+        clearFieldError('dosen-nama');
+        return true;
+    }
+    return true;
+}
+
+function handleDosenSubmit(event) {
+    event.preventDefault();
+    const vNidn = validateDosenField('dosen-nidn');
+    const vNama = validateDosenField('dosen-nama');
+
+    if (!vNidn || !vNama) {
+        showToast('Harap periksa isian data dosen.', 'error');
+        return;
+    }
+
+    const nidn = document.getElementById('dosen-nidn').value.trim();
+    const nama = document.getElementById('dosen-nama').value.trim();
+
+    appData.dosen[nidn] = { nidn, nama };
+
+    const payload = {
+        id: Date.now(),
+        action: 'master_dosen',
+        nidn: nidn,
+        namaDosen: nama
+    };
+
+    sendToGoogleSheets(payload);
+    sendToWhatsApp(payload);
+
+    document.getElementById('form-dosen').reset();
+    clearFormErrors(document.getElementById('form-dosen'));
+    updateDosenView();
+    updateDashboard();
+    showToast(`Dosen ${nama} berhasil disimpan dan disinkron!`);
+}
+
+function updateDosenView() {
+    const tbody = document.getElementById('table-dosen-body');
+    const emptyState = document.getElementById('empty-dosen-state');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+    const dosens = Object.values(appData.dosen);
+
+    if (dosens.length === 0) {
+        if (emptyState) emptyState.classList.remove('hidden');
+    } else {
+        if (emptyState) emptyState.classList.add('hidden');
+        dosens.forEach(ds => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-surface transition-colors';
+            tr.innerHTML = `
+                <td class="p-3.5 px-5 text-sm font-semibold text-ink font-num">${ds.nidn}</td>
+                <td class="p-3.5 text-sm text-ink-soft">${ds.nama}</td>
+                <td class="p-3.5 px-5 text-center">
+                    <button onclick="deleteDosen('${ds.nidn}')" class="text-muted hover:text-danger transition-colors p-2 rounded-md hover:bg-danger-soft">
+                        <i class="fas fa-trash text-sm"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+}
+
+function deleteDosen(nidn) {
+    delete appData.dosen[nidn];
+    updateDosenView();
+    updateDashboard();
+    showToast("Dosen berhasil dihapus.", "success");
+}
+
+function populateDosenDropdown() {
+    const select = document.getElementById('input-dosen');
+    if (!select) return;
+    select.innerHTML = '<option value="" disabled selected>Pilih Dosen</option>';
+    Object.values(appData.dosen).forEach(ds => {
+        const opt = document.createElement('option');
+        opt.value = ds.nama;
+        opt.text = ds.nama;
+        select.appendChild(opt);
+    });
+}
+
+// --- MASTER DATA MATKUL ---
 function validateMasterField(fieldId) {
-    const data = getData();
     if (fieldId === 'master-kode') {
         const val = document.getElementById('master-kode').value.trim();
         if (!val) { showFieldError('master-kode', 'Kode MK wajib diisi.'); return false; }
@@ -251,12 +365,9 @@ function handleMasterSubmit(event) {
     const nama = document.getElementById('master-nama').value.trim();
     const sks = parseInt(document.getElementById('master-sks').value);
 
-    const data = getData();
+    const isUpdate = !!appData.mataKuliah[kode];
+    appData.mataKuliah[kode] = { kode, nama, sks };
 
-    const isUpdate = !!data.mataKuliah[kode];
-    data.mataKuliah[kode] = { kode, nama, sks };
-
-    // Send to Google Sheets (Optimistic UI - update local memory first)
     const payload = {
         id: Date.now(),
         action: 'master_matkul',
@@ -270,27 +381,23 @@ function handleMasterSubmit(event) {
 
     document.getElementById('form-master').reset();
     clearFormErrors(document.getElementById('form-master'));
-    document.getElementById('master-kode').focus();
-
     updateMasterView();
     updateDashboard();
-    showToast(isUpdate ? `Mata kuliah ${nama} diperbarui & disinkron!` : `Mata kuliah ${nama} ditambahkan & disinkron!`);
+    showToast(isUpdate ? `Mata kuliah ${nama} diperbarui!` : `Mata kuliah ${nama} ditambahkan!`);
 }
 
 function updateMasterView() {
-    const data = getData();
     const tbody = document.getElementById('table-master-body');
     const emptyState = document.getElementById('empty-master-state');
+    if (!tbody) return;
 
     tbody.innerHTML = '';
-
-    const matkuls = Object.values(data.mataKuliah);
+    const matkuls = Object.values(appData.mataKuliah);
 
     if (matkuls.length === 0) {
-        emptyState.classList.remove('hidden');
+        if (emptyState) emptyState.classList.remove('hidden');
     } else {
-        emptyState.classList.add('hidden');
-
+        if (emptyState) emptyState.classList.add('hidden');
         matkuls.forEach(mk => {
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-surface transition-colors';
@@ -299,7 +406,7 @@ function updateMasterView() {
                 <td class="p-3.5 text-sm text-ink-soft">${mk.nama}</td>
                 <td class="p-3.5 text-sm text-center font-medium text-ink font-num">${mk.sks}</td>
                 <td class="p-3.5 px-5 text-center">
-                    <button onclick="deleteMaster('${mk.kode}')" class="text-muted hover:text-danger transition-colors p-2 rounded-md hover:bg-danger-soft" aria-label="Hapus ${mk.kode}">
+                    <button onclick="deleteMaster('${mk.kode}')" class="text-muted hover:text-danger transition-colors p-2 rounded-md hover:bg-danger-soft">
                         <i class="fas fa-trash text-sm"></i>
                     </button>
                 </td>
@@ -310,42 +417,44 @@ function updateMasterView() {
 }
 
 function deleteMaster(kode) {
-    showToast("Penghapusan tidak dapat dilakukan dari sini. Hapus baris data secara manual di Google Sheets lalu refresh halaman.", 'error');
+    delete appData.mataKuliah[kode];
+    updateMasterView();
+    updateDashboard();
+    showToast('Mata kuliah dihapus.', 'success');
 }
 
-// --- INPUT NILAI LOGIC ---
+// --- INPUT & KALKULASI NILAI ---
 function populateMatkulDropdown() {
-    const data = getData();
     const select = document.getElementById('input-matkul');
     const alertNoMaster = document.getElementById('alert-no-master');
     const btnSubmit = document.getElementById('btn-submit-nilai');
+    if (!select) return;
 
-    const matkuls = Object.values(data.mataKuliah);
-
-    // Clear existing options
+    const matkuls = Object.values(appData.mataKuliah);
     select.innerHTML = '<option value="" disabled selected>— Pilih mata kuliah —</option>';
 
     if (matkuls.length === 0) {
-        alertNoMaster.classList.remove('hidden');
-        btnSubmit.disabled = true;
-        btnSubmit.classList.add('opacity-50', 'cursor-not-allowed');
+        if (alertNoMaster) alertNoMaster.classList.remove('hidden');
+        if (btnSubmit) {
+            btnSubmit.disabled = true;
+            btnSubmit.classList.add('opacity-50', 'cursor-not-allowed');
+        }
     } else {
-        alertNoMaster.classList.add('hidden');
-        btnSubmit.disabled = false;
-        btnSubmit.classList.remove('opacity-50', 'cursor-not-allowed');
+        if (alertNoMaster) alertNoMaster.classList.add('hidden');
+        if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
 
         matkuls.forEach(mk => {
             const option = document.createElement('option');
             option.value = mk.kode;
             option.text = `${mk.kode} — ${mk.nama}`;
-            // Store SKS in data attribute for easy access
             option.setAttribute('data-sks', mk.sks);
             option.setAttribute('data-nama', mk.nama);
             select.appendChild(option);
         });
     }
-
-    // Reset SKS display
     document.getElementById('display-sks').value = '';
     document.getElementById('input-sks').value = '';
 }
@@ -362,102 +471,79 @@ function updateSksDisplay() {
 }
 
 function validateNilaiField(fieldId) {
-    if (fieldId === 'input-nim') {
-        const val = document.getElementById('input-nim').value.trim();
-        if (!val) { showFieldError('input-nim', 'NIM wajib diisi.'); return false; }
-        if (!/^\d+$/.test(val)) { showFieldError('input-nim', 'NIM hanya boleh berisi angka.'); return false; }
-        clearFieldError('input-nim');
-        return true;
+    const input = document.getElementById(fieldId);
+    if (!input) return true;
+    const val = input.value.trim();
+
+    if (['input-nim', 'input-nama', 'input-semester', 'input-matkul', 'input-dosen', 'nilai-tugas', 'nilai-uts', 'nilai-uas'].includes(fieldId)) {
+        if (!val) { showFieldError(fieldId, 'Harap isi bagian ini.'); return false; }
     }
-    if (fieldId === 'input-nama') {
-        const val = document.getElementById('input-nama').value.trim();
-        if (!val) { showFieldError('input-nama', 'Nama wajib diisi.'); return false; }
-        clearFieldError('input-nama');
-        return true;
+    if (['nilai-tugas', 'nilai-uts', 'nilai-uas'].includes(fieldId)) {
+        const score = parseFloat(val);
+        if (isNaN(score) || score < 0 || score > 100) {
+            showFieldError(fieldId, 'Nilai harus 0 sampai 100.');
+            return false;
+        }
     }
-    if (fieldId === 'input-semester') {
-        const val = document.getElementById('input-semester').value;
-        const num = parseInt(val);
-        if (!val) { showFieldError('input-semester', 'Semester wajib diisi.'); return false; }
-        if (isNaN(num) || num < 1 || num > 14) { showFieldError('input-semester', 'Semester harus di antara 1 dan 14.'); return false; }
-        clearFieldError('input-semester');
-        return true;
-    }
-    if (fieldId === 'input-matkul') {
-        const val = document.getElementById('input-matkul').value;
-        if (!val) { showFieldError('input-matkul', 'Pilih mata kuliah terlebih dahulu.'); return false; }
-        clearFieldError('input-matkul');
-        return true;
-    }
-    if (fieldId === 'input-nilai') {
-        const val = document.getElementById('input-nilai').value;
-        if (!val) { showFieldError('input-nilai', 'Pilih nilai huruf.'); return false; }
-        clearFieldError('input-nilai');
-        return true;
-    }
+    clearFieldError(fieldId);
     return true;
 }
 
 function handleFormSubmit(event) {
     event.preventDefault();
 
-    const fields = ['input-nim', 'input-nama', 'input-semester', 'input-matkul', 'input-nilai'];
+    const fields = ['input-nim', 'input-nama', 'input-semester', 'input-matkul', 'input-dosen', 'nilai-tugas', 'nilai-uts', 'nilai-uas'];
     const results = fields.map(validateNilaiField);
 
     if (results.includes(false)) {
-        showToast('Periksa kembali data yang diisi.', 'error');
+        showToast('Lengkapi isian data komponen nilai.', 'error');
         return;
     }
 
     const nim = document.getElementById('input-nim').value.trim();
     const nama = document.getElementById('input-nama').value.trim();
     const semester = document.getElementById('input-semester').value;
+    const selectMK = document.getElementById('input-matkul');
+    const dosenName = document.getElementById('input-dosen').value;
 
-    const select = document.getElementById('input-matkul');
-    const kodeMk = select.value;
-    const namaMk = select.options[select.selectedIndex].getAttribute('data-nama');
-    const sks = parseInt(document.getElementById('input-sks').value);
+    const tgs = parseFloat(document.getElementById('nilai-tugas').value) || 0;
+    const uts = parseFloat(document.getElementById('nilai-uts').value) || 0;
+    const uas = parseFloat(document.getElementById('nilai-uas').value) || 0;
 
-    const nilaiHuruf = document.getElementById('input-nilai').value;
-    const nilaiAngka = scale[nilaiHuruf];
+    // Kalkulasi Akademik: Komponen Nilai
+    const totalScore = (tgs * 0.3) + (uts * 0.3) + (uas * 0.4);
+    const gradeLetter = convertToGradeLetter(totalScore);
 
-    const data = getData();
+    const kodeMk = selectMK.value;
+    const namaMk = selectMK.options[selectMK.selectedIndex].getAttribute('data-nama');
+    const sks = parseInt(document.getElementById('input-sks').value) || 2;
 
-    // Initialize student if not exists
-    if (!data.students[nim]) {
-        data.students[nim] = {
-            nim: nim,
-            nama: nama,
-            semesters: {}
-        };
+    if (!appData.students[nim]) {
+        appData.students[nim] = { nim, nama, semesters: {} };
     } else {
-        data.students[nim].nama = nama; // Update name
+        appData.students[nim].nama = nama;
     }
 
-    // Initialize semester if not exists
-    if (!data.students[nim].semesters[semester]) {
-        data.students[nim].semesters[semester] = [];
+    if (!appData.students[nim].semesters[semester]) {
+        appData.students[nim].semesters[semester] = [];
     }
 
-    // Check if subject already inputted for this semester
-    const exists = data.students[nim].semesters[semester].find(mk => mk.kode === kodeMk);
+    const exists = appData.students[nim].semesters[semester].find(mk => mk.kode === kodeMk);
     if (exists) {
-        showFieldError('input-matkul', 'Mata kuliah ini sudah diinput pada semester tersebut.');
-        showToast('Mata kuliah ini sudah diinput pada semester tersebut!', 'error');
+        showToast('Mata kuliah ini sudah diinput pada semester tersebut.', 'error');
         return;
     }
 
-    // Add subject
-    data.students[nim].semesters[semester].push({
+    appData.students[nim].semesters[semester].push({
         kode: kodeMk,
         matkul: namaMk,
         sks: sks,
-        nilaiHuruf: nilaiHuruf,
-        nilaiAngka: nilaiAngka
+        dosen: dosenName,
+        nilaiHuruf: gradeLetter,
+        nilaiAngka: scale[gradeLetter] || 0
     });
 
-    // Calculate updated IPK for this student to send to Google Sheets
-    const currentIpk = calculateIPK(data.students[nim]).toFixed(2);
+    const currentIpk = calculateIPK(appData.students[nim]).toFixed(2);
 
     const payload = {
         id: Date.now(),
@@ -467,86 +553,91 @@ function handleFormSubmit(event) {
         semester: semester,
         matkul: namaMk,
         sks: sks,
-        nilaiHuruf: nilaiHuruf,
+        dosen: dosenName,
+        nilaiHuruf: gradeLetter,
         ipk: currentIpk
     };
 
-    // Send to Google Sheets
     sendToGoogleSheets(payload);
     sendToWhatsApp(payload);
 
-    // Reset only the subject/grade fields, keep student identity for fast repeat entry
+    // Reset Form Akademik
     document.getElementById('input-matkul').value = '';
     document.getElementById('display-sks').value = '';
     document.getElementById('input-sks').value = '';
-    document.getElementById('input-nilai').value = '';
-    clearFieldError('input-matkul');
-    clearFieldError('input-nilai');
-    document.getElementById('input-matkul').focus();
+    document.getElementById('nilai-tugas').value = '';
+    document.getElementById('nilai-uts').value = '';
+    document.getElementById('nilai-uas').value = '';
 
     updateDashboard();
-    showToast(`Nilai ${namaMk} untuk ${nama} berhasil direkam & disinkron!`);
+    showToast(`Nilai ${namaMk} (${gradeLetter}) untuk ${nama} berhasil disimpan!`);
 }
 
-// --- Calculations & View Logic ---
+// --- CALCULATIONS & STATS ---
 function calculateIPK(student) {
     let totalBobot = 0;
     let totalSKS = 0;
-
     for (const sem in student.semesters) {
         student.semesters[sem].forEach(mk => {
             totalBobot += (mk.sks * mk.nilaiAngka);
             totalSKS += mk.sks;
         });
     }
-
     return totalSKS === 0 ? 0 : (totalBobot / totalSKS);
 }
 
-// Menghitung Indeks Prestasi Semester (IPS)
+function calculateAverageIPK() {
+    const students = Object.values(appData.students);
+    if (students.length === 0) return 0;
+    let total = 0;
+    students.forEach(st => {
+        total += calculateIPK(st);
+    });
+    return total / students.length;
+}
+
 function calculateIPS(semesterData) {
     let totalBobot = 0;
     let totalSKS = 0;
-
     semesterData.forEach(mk => {
         totalBobot += (mk.sks * mk.nilaiAngka);
         totalSKS += mk.sks;
     });
-
     return totalSKS === 0 ? 0 : (totalBobot / totalSKS);
 }
 
 function updateDashboard() {
-    const data = getData();
-    let totalMhs = Object.keys(data.students).length;
-    let totalMatkulMaster = Object.keys(data.mataKuliah).length;
+    let totalMhs = Object.keys(appData.students).length;
+    let totalDosen = Object.keys(appData.dosen).length;
+    let totalMatkulMaster = Object.keys(appData.mataKuliah).length;
     let totalNilai = 0;
 
-    for (const nim in data.students) {
-        for (const sem in data.students[nim].semesters) {
-            totalNilai += data.students[nim].semesters[sem].length;
+    for (const nim in appData.students) {
+        for (const sem in appData.students[nim].semesters) {
+            totalNilai += appData.students[nim].semesters[sem].length;
         }
     }
 
     document.getElementById('stat-mhs').innerText = totalMhs;
+    document.getElementById('stat-dosen').innerText = totalDosen;
     document.getElementById('stat-matkul-master').innerText = totalMatkulMaster;
     document.getElementById('stat-nilai').innerText = totalNilai;
+    document.getElementById('stat-avg-ipk').innerText = calculateAverageIPK().toFixed(2);
 }
 
+// --- VIEW MANAGEMENT ---
 function updateView() {
-    const data = getData();
     const tbody = document.getElementById('table-mhs-body');
     const emptyState = document.getElementById('empty-state');
+    if (!tbody) return;
 
     tbody.innerHTML = '';
-
-    const students = Object.values(data.students);
+    const students = Object.values(appData.students);
 
     if (students.length === 0) {
-        emptyState.classList.remove('hidden');
+        if (emptyState) emptyState.classList.remove('hidden');
     } else {
-        emptyState.classList.add('hidden');
-
+        if (emptyState) emptyState.classList.add('hidden');
         students.forEach(student => {
             let totalSKS = 0;
             for (const sem in student.semesters) {
@@ -554,11 +645,6 @@ function updateView() {
             }
 
             const ipk = calculateIPK(student).toFixed(2);
-            let ipkClasses = 'bg-success-soft text-success border-success-line';
-
-            if (ipk < 2.0) { ipkClasses = 'bg-danger-soft text-danger border-danger-line'; }
-            else if (ipk < 3.0) { ipkClasses = 'bg-warn-soft text-warn border-warn-line'; }
-
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-surface transition-colors';
             tr.innerHTML = `
@@ -575,7 +661,7 @@ function updateView() {
                 </td>
                 <td class="p-4 text-center text-sm text-ink-soft font-num">${totalSKS}</td>
                 <td class="p-4 text-center">
-                    <span class="${ipkClasses} px-2.5 py-1 rounded-md font-semibold text-xs border font-num">${ipk}</span>
+                    <span class="bg-accent-soft text-accent border-accent px-2.5 py-1 rounded-md font-semibold text-xs border font-num">${ipk}</span>
                 </td>
                 <td class="p-4 px-5 text-center">
                     <button onclick="viewDetail('${student.nim}')" class="border border-line text-ink-soft hover:text-accent hover:border-accent px-3 py-1.5 rounded-md text-xs font-medium transition-colors">
@@ -589,18 +675,24 @@ function updateView() {
 }
 
 function viewDetail(nim) {
-    const data = getData();
-    const student = data.students[nim];
+    const student = appData.students[nim];
     if (!student) return;
 
-    document.getElementById('detail-nim').innerText = student.nim;
+    document.getElementById('detail-nim').innerText = `NIM: ${student.nim}`;
     document.getElementById('detail-nama').innerText = student.nama;
-    document.getElementById('detail-ipk').innerText = calculateIPK(student).toFixed(2);
+    
+    const ipk = calculateIPK(student);
+    document.getElementById('detail-ipk').innerText = ipk.toFixed(2);
+
+    let predikat = 'Kurang';
+    if (ipk >= 3.51) predikat = 'Dengan Pujian (Cum Laude)';
+    else if (ipk >= 3.0) predikat = 'Sangat Memuaskan';
+    else if (ipk >= 2.00) predikat = 'Memuaskan';
+    document.getElementById('detail-status').innerText = predikat;
 
     const semestersContainer = document.getElementById('detail-semesters');
     semestersContainer.innerHTML = '';
 
-    // Sort semesters
     const semKeys = Object.keys(student.semesters).sort((a, b) => parseInt(a) - parseInt(b));
 
     semKeys.forEach(sem => {
@@ -612,47 +704,35 @@ function viewDetail(nim) {
 
         mkData.forEach(mk => {
             sksSem += mk.sks;
-            let badgeClasses = 'bg-success-soft text-success border-success-line';
-            if (['D', 'E'].includes(mk.nilaiHuruf)) badgeClasses = 'bg-danger-soft text-danger border-danger-line';
-            else if (['C', 'C+'].includes(mk.nilaiHuruf)) badgeClasses = 'bg-warn-soft text-warn border-warn-line';
-
             rows += `
                 <tr class="border-b border-line last:border-0 hover:bg-surface transition-colors">
                     <td class="py-3 px-4">
                         <p class="text-sm text-ink">${mk.matkul}</p>
-                        <p class="text-xs text-muted font-num">${mk.kode || '-'}</p>
+                        <p class="text-[10px] text-muted font-num">${mk.kode || '-'} | Dosen: ${mk.dosen}</p>
                     </td>
                     <td class="py-3 px-4 text-center text-sm text-ink-soft font-num">${mk.sks}</td>
-                    <td class="py-3 px-4 text-center">
-                        <span class="${badgeClasses} px-2 py-0.5 rounded border text-xs font-semibold font-num">${mk.nilaiHuruf}</span>
-                    </td>
-                    <td class="py-3 px-4 text-center text-sm text-ink-soft font-num">${mk.nilaiAngka.toFixed(2)}</td>
+                    <td class="py-3 px-4 text-center font-bold text-accent">${mk.nilaiHuruf}</td>
                 </tr>
             `;
         });
 
         const semHtml = `
             <div class="border border-line rounded-lg overflow-hidden">
-                <div class="bg-surface p-3.5 px-4 flex justify-between items-center border-b border-line">
+                <div class="bg-surface p-3 px-4 flex justify-between items-center border-b border-line">
                     <h4 class="text-sm font-semibold text-ink">Semester ${sem}</h4>
-                    <div class="flex items-center gap-3 text-xs">
-                        <span class="text-muted">SKS <span class="font-semibold text-ink font-num">${sksSem}</span></span>
-                        <span class="text-line-strong">|</span>
-                        <span class="text-muted">IPS <span class="font-semibold text-accent font-num">${ips}</span></span>
+                    <div class="flex items-center gap-3 text-xs font-semibold">
+                        <span class="text-muted">IPS: <span class="text-accent font-num">${ips}</span></span>
                     </div>
                 </div>
                 <table class="w-full text-left">
-                    <thead class="text-muted text-[11px] uppercase border-b border-line">
-                        <tr>
-                            <th class="py-2.5 px-4 font-semibold">Mata Kuliah</th>
-                            <th class="py-2.5 px-4 font-semibold text-center w-20">SKS</th>
-                            <th class="py-2.5 px-4 font-semibold text-center w-24">Nilai</th>
-                            <th class="py-2.5 px-4 font-semibold text-center w-24">Bobot</th>
+                    <thead>
+                        <tr class="text-muted text-[10px] uppercase border-b border-line">
+                            <th class="py-2 px-4">Mata Kuliah</th>
+                            <th class="py-2 text-center w-20">SKS</th>
+                            <th class="py-2 text-center w-24">Nilai</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white">
-                        ${rows}
-                    </tbody>
+                    <tbody class="bg-white">${rows}</tbody>
                 </table>
             </div>
         `;
@@ -660,16 +740,11 @@ function viewDetail(nim) {
     });
 
     document.getElementById('detail-view').classList.remove('hidden');
-    // Scroll to detail view
     document.getElementById('detail-view').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function closeDetail() {
     document.getElementById('detail-view').classList.add('hidden');
-}
-
-function clearAllData() {
-    showToast("Untuk mereset seluruh data, hapus baris data langsung di Google Sheets Anda, lalu refresh halaman.", 'error');
 }
 
 // --- Live validation wiring ---
@@ -678,21 +753,16 @@ function initLiveValidation() {
     masterFields.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('blur', () => validateMasterField(id));
-        if (el) el.addEventListener('input', () => { if (el.classList.contains('invalid')) validateMasterField(id); });
     });
 
-    const nilaiFields = ['input-nim', 'input-nama', 'input-semester', 'input-matkul', 'input-nilai'];
+    const nilaiFields = ['input-nim', 'input-nama', 'input-semester', 'input-matkul', 'input-dosen', 'nilai-tugas', 'nilai-uts', 'nilai-uas'];
     nilaiFields.forEach(id => {
         const el = document.getElementById(id);
-        if (!el) return;
-        el.addEventListener('blur', () => validateNilaiField(id));
-        el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', () => {
-            if (el.classList.contains('invalid')) validateNilaiField(id);
-        });
+        if (el) el.addEventListener('blur', () => validateNilaiField(id));
     });
 }
 
-// Init
+// Run
 window.onload = () => {
     initLiveValidation();
     fetchDataFromGoogleSheets();
