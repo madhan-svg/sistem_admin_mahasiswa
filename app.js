@@ -27,7 +27,7 @@ function injectLoginScreen(isAuthenticated) {
                     <p class="text-xs text-zinc-500 mt-1">Sistem Manajemen Akademik & Nilai</p>
                 </div>
                 <form id="form-login-system" class="space-y-4">
-                    <div id="login-error-msg" class="hidden text-xs text-red-700 bg-red-50 border border-red-200 p-3 rounded-md flex items-center gap-2"><i class="fas fa-circle-exclamation"></i><span>Username atau password salah!</span></div>
+                    <div id="login-error-msg" class="hidden text-xs text-red-700 bg-red-50 border border-red-200 p-3 rounded-md flex items-center gap-2"><i class="fas fa-circle-exclamation"></i><span>Error: Username atau password salah</span></div>
                     <div>
                         <label class="block text-xs font-semibold text-zinc-600 mb-1.5">Username</label>
                         <input type="text" id="login-username" required class="w-full px-3 py-2.5 text-sm border border-zinc-200 rounded-md focus:outline-none focus:border-[#1D4E89]">
@@ -294,8 +294,23 @@ function updateSksDisplay() {
 }
 
 // =========================================================================
-// 6. MODULE: KOMPONEN NILAI MAHASISWA (EDIT & HAPUS)
+// 6. MODULE: KOMPONEN NILAI MAHASISWA (EDIT & HAPUS & VALIDASI)
 // =========================================================================
+
+// Fungsi validasi input nilai - tidak boleh melebihi 100
+function validateNilaiInput(event) {
+    const input = event.target;
+    let value = parseFloat(input.value);
+    
+    if (value > 100) {
+        input.value = 100;
+        showToast(`Nilai maksimal adalah 100. Nilai di-set ke 100.`, 'error');
+    } else if (value < 0) {
+        input.value = 0;
+        showToast(`Nilai minimal adalah 0. Nilai di-set ke 0.`, 'error');
+    }
+}
+
 function handleFormSubmit(e) {
     e.preventDefault();
     const nim = document.getElementById('input-nim').value.trim(), nama = document.getElementById('input-nama').value.trim(), semester = document.getElementById('input-semester').value;
@@ -303,6 +318,18 @@ function handleFormSubmit(e) {
     const tgs = parseFloat(document.getElementById('nilai-tugas').value) || 0, uts = parseFloat(document.getElementById('nilai-uts').value) || 0, uas = parseFloat(document.getElementById('nilai-uas').value) || 0;
 
     if (!nim || !nama || !semester || !selectMK.value || !dosen) return showToast('Harap lengkapi formulir nilai!', 'error');
+
+    // Validasi nilai tidak boleh lebih dari 100
+    if (tgs > 100 || uts > 100 || uas > 100) {
+        showToast('❌ Nilai tidak boleh melebihi 100!', 'error');
+        return;
+    }
+
+    // Validasi nilai tidak boleh negatif
+    if (tgs < 0 || uts < 0 || uas < 0) {
+        showToast('❌ Nilai tidak boleh negatif!', 'error');
+        return;
+    }
 
     const total = (tgs * 0.3) + (uts * 0.3) + (uas * 0.4), grade = convertToGradeLetter(total);
     const kodeMk = selectMK.value, namaMk = selectMK.options[selectMK.selectedIndex].getAttribute('data-nama');
@@ -331,7 +358,7 @@ function handleFormSubmit(e) {
     
     document.getElementById('form-nilai').reset();
     document.getElementById('display-sks').value = '';
-    showToast('Rekor kompetensi nilai mahasiswa berhasil disimpan!');
+    showToast('✅ Rekor kompetensi nilai mahasiswa berhasil disimpan!', 'success');
     switchTab('view');
 }
 
@@ -402,7 +429,7 @@ function updateView() {
                 <td class="p-4 text-center text-sm font-num">${sks}</td>
                 <td class="p-4 text-center"><span class="bg-accent-soft text-accent border border-accent px-2.5 py-1 rounded-md font-semibold text-xs font-num">${calculateIPK(st).toFixed(2)}</span></td>
                 <td class="p-4 px-5 text-center flex items-center justify-center gap-2">
-                    <button onclick="viewDetail('${st.nim}')" class="border border-line text-ink-soft hover:text-accent px-3 py-1.5 rounded-md text-xs font-medium"><i class="fas fa-eye"></i> Rincian</button>
+                    <button onclick="viewDetail('${st.nim}')" class="border border-line text-ink-soft hover:text-accent px-3 py-1.5 rounded-md text-xs font-medium"><i class="fas fa-eye"></i> Rinci</button>
                     <button onclick="deleteStudentData('${st.nim}')" class="border border-line text-zinc-400 hover:text-danger px-2.5 py-1.5 rounded-md text-xs"><i class="fas fa-trash-can"></i> Hapus</button>
                 </td>
             </tr>`;
@@ -450,8 +477,8 @@ function viewDetail(nim) {
                     <td class="py-3 px-4 text-center text-sm font-num">${mk.sks}</td>
                     <td class="py-3 px-4 text-center font-bold text-accent">${mk.nilaiHuruf}</td>
                     <td class="py-3 px-4 text-center no-print flex justify-center gap-2">
-                        <button onclick="editNilai('${student.nim}', '${sem}', ${idx})" class="text-accent hover:bg-accent-soft p-1 rounded" title="Edit Nilai Komponen"><i class="fas fa-edit text-xs"></i></button>
-                        <button onclick="deleteSubjectFromTranscript('${student.nim}', '${sem}', '${mk.kode}')" class="text-danger hover:bg-danger-soft p-1 rounded" title="Hapus"><i class="fas fa-trash text-xs"></i></button>
+                        <button onclick="editNilai('${student.nim}', '${sem}', ${idx})" class="text-accent hover:bg-accent-soft p-1 rounded" title="Edit Nilai Komponen"><i class="fas fa-edit text-sm"></i></button>
+                        <button onclick="deleteSubjectFromTranscript('${student.nim}', '${sem}', '${mk.kode}')" class="text-danger hover:bg-danger-soft p-1 rounded" title="Hapus"><i class="fas fa-trash text-sm"></i></button>
                     </td>
                 </tr>`;
         });
@@ -462,7 +489,7 @@ function viewDetail(nim) {
                     <span class="text-xs font-semibold text-muted">IPS: <span class="text-accent font-num">${calculateIPS(student.semesters[sem]).toFixed(2)}</span></span>
                 </div>
                 <table class="w-full text-left">
-                    <thead><tr class="text-muted text-[10px] uppercase border-b border-line"><th class="py-2 px-4">Mata Kuliah</th><th class="py-2 text-center w-20">SKS</th><th class="py-2 text-center w-16">Grade</th><th class="py-2 text-center w-32">Aksi</th></tr></thead>
+                    <thead><tr class="text-muted text-[10px] uppercase border-b border-line"><th class="py-2 px-4">Mata Kuliah</th><th class="py-2 text-center w-20">SKS</th><th class="py-2 text-center w-16">Grade</th><th class="py-2 text-center w-24">Aksi</th></tr></thead>
                     <tbody class="bg-white">${rows}</tbody>
                 </table>
             </div>`;
@@ -482,6 +509,11 @@ window.onload = () => {
     if(document.getElementById('form-master')) document.getElementById('form-master').addEventListener('submit', handleMasterSubmit);
     if(document.getElementById('form-nilai')) document.getElementById('form-nilai').addEventListener('submit', handleFormSubmit);
     if(document.getElementById('input-matkul')) document.getElementById('input-matkul').addEventListener('change', updateSksDisplay);
+    
+    // Tambah event listener untuk validasi input nilai real-time
+    if(document.getElementById('nilai-tugas')) document.getElementById('nilai-tugas').addEventListener('change', validateNilaiInput);
+    if(document.getElementById('nilai-uts')) document.getElementById('nilai-uts').addEventListener('change', validateNilaiInput);
+    if(document.getElementById('nilai-uas')) document.getElementById('nilai-uas').addEventListener('change', validateNilaiInput);
     
     checkAuthStatus();
 };
