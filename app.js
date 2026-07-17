@@ -23,7 +23,7 @@ function injectLoginScreen(isAuthenticated) {
             <div class="bg-white w-full max-w-sm rounded-xl border border-zinc-200 shadow-xl p-6 md:p-8 space-y-6">
                 <div class="text-center">
                     <div class="bg-[#1D4E89] text-white w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-3"><i class="fas fa-graduation-cap text-xl"></i></div>
-                    <h2 class="text-xl font-bold text-zinc-900 tracking-tight">SiNilai Pro</h2>
+                    <h2 class="text-xl font-bold text-zinc-900 tracking-tight">SiNilai</h2>
                     <p class="text-xs text-zinc-500 mt-1">Sistem Manajemen Akademik & Nilai</p>
                 </div>
                 <form id="form-login-system" class="space-y-4">
